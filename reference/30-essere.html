@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>essere — drill</title>
+<style>
+  :root{
+    --petrol:#10202B; --petrol-deep:#0B1922; --cream:#F5EEDD; --ocra:#C99A3E;
+    --ocra-ink:#A87A22; --verde:#3F5136; --verde-wash:rgba(124,144,112,.18);
+    --rosso:#8E3623; --rosso-wash:rgba(166,67,45,.12);
+    --ambra:#7A5A18; --ambra-wash:rgba(201,154,62,.16);
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%; color-scheme:dark}
+  /* Centre with `margin:0 auto`, NOT flex on <body>. The publish script injects a
+     `build …` div just before <div style="color:#c4bfb2;font-size:11px;text-align:center;padding:8px 0">build 2026-07-28-1804</div></body>, and as a flex sibling it sat beside .wrap in
+     the same row — pushing the content off-centre and parking the stamp top-right.
+     Auto margins keep .wrap centred no matter what gets appended after it. */
+  body{
+    margin:0; background:var(--petrol); color:var(--cream);
+    font:16px/1.6 var(--sans);
+    padding:30px max(16px, env(safe-area-inset-left))
+            calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right));
+  }
+  .wrap{width:100%; max-width:440px; margin:0 auto}
+
+  .eyebrow{font-size:11px; letter-spacing:.3em; text-transform:uppercase;
+    color:var(--ocra); margin-bottom:4px}
+  h1{font-family:var(--serif); font-size:40px; font-weight:400; line-height:1;
+    margin:0 0 8px; letter-spacing:.005em}
+  .kicker{font-size:12px; line-height:1.5; color:rgba(245,238,221,.45); margin:0 0 20px}
+  .kicker b{color:var(--ocra); font-weight:600}
+  .home{display:inline-block; margin:0 0 18px; font-size:12px; color:rgba(245,238,221,.45);
+    text-decoration:none}
+  .home:hover{color:var(--ocra)}
+
+  /* ---- sliding tabs ---- */
+  .tabs{position:relative; display:flex; gap:4px; background:var(--petrol-deep);
+    border-radius:12px; padding:4px; margin-bottom:22px}
+  .thumb{position:absolute; top:4px; left:4px; width:calc(50% - 4px);
+    height:calc(100% - 8px); background:var(--cream); border-radius:8px;
+    transition:transform .34s cubic-bezier(.4,.01,.2,1); z-index:0}
+  .thumb.right{transform:translateX(calc(100% + 4px))}
+  .tab{position:relative; z-index:1; flex:1; display:flex; align-items:center;
+    justify-content:center; gap:7px; min-height:44px; padding:10px 0;
+    border:0; border-radius:8px; background:none; cursor:pointer;
+    font:500 14px/1 var(--sans); color:rgba(245,238,221,.6);
+    transition:color .22s ease; -webkit-tap-highlight-color:transparent}
+  .tab[aria-selected="true"]{color:var(--petrol)}
+  .tab:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+  .tab svg{width:15px; height:15px; flex:none}
+
+  /* ---- sliding panes ----
+     `align-items:flex-start` is LOAD-BEARING: it lets each pane size to its own
+     content, so setting .viewport's height can never feed back into a pane's
+     height. Change it to the flex default (stretch) and the ResizeObserver below
+     enters an infinite height loop. */
+  /* overflow:clip, NOT hidden — same fix as reference/50-coniugazioni.html, same day, same reason
+     (learner report 2026-07-26: the page drifting right on scroll-down and back left on scroll-up,
+     on the iPhone). `hidden` leaves this a real SCROLL CONTAINER holding the 200%-wide `.track`
+     (two panes) in a one-pane-wide box, so any browser-initiated scroll — focus/caret reveal,
+     accessibility, find-on-page — can pan it sideways by a whole pane. This file was actually the
+     worse of the two: 50 at least reset `scrollLeft = 0` defensively in two places, and this one
+     has no guard at all, on either axis. `clip` means it is not a scroll container, so scrollLeft
+     and scrollTop are pinned at 0. Keep it `clip` on both axes; `overflow:hidden` brings it back. */
+  .viewport{overflow:clip; transition:height .34s cubic-bezier(.4,.01,.2,1)}
+  .track{display:flex; align-items:flex-start; width:200%;
+    transition:transform .34s cubic-bezier(.4,.01,.2,1)}
+  .track.right{transform:translateX(-50%)}
+  .pane{width:50%; flex:none}
+  .pane[inert]{pointer-events:none}
+  .no-anim, .no-anim .thumb, .no-anim .track, .no-anim .viewport{transition:none !important}
+
+  /* ---- score ---- */
+  .score{display:flex; justify-content:space-between; align-items:baseline;
+    font-size:14px; color:rgba(245,238,221,.6); margin-bottom:18px;
+    font-variant-numeric:tabular-nums}
+  .score b{color:var(--ocra); font-weight:500}
+
+  /* ---- drill card ---- */
+  .card{background:var(--cream); color:var(--petrol); border-radius:16px;
+    padding:24px; box-shadow:0 18px 40px rgba(0,0,0,.35)}
+  /* The tense is the hard cue — it carries the weight. The pronoun is the easy
+     part, so it steps back to a small ochre eyebrow. */
+  .card-person{font:700 12px/1 var(--sans); letter-spacing:.24em; text-transform:uppercase;
+    color:var(--ocra-ink); margin-bottom:11px}
+  .card-tense{font-family:var(--serif); font-size:34px; font-weight:400; line-height:1.08;
+    letter-spacing:-.015em; color:var(--petrol); text-wrap:balance}
+  .card-sub{font-size:12.5px; font-style:italic; color:rgba(16,32,43,.45);
+    margin:5px 0 22px}
+  /* .field is a <textarea rows="1">, NOT an <input> (2026-07-27) — see the guard comment on the
+     keyboard-framing block in the script. min-height reproduces the old input box exactly:
+     20px x 1.3 line = 26 + 2x13 padding + 2x2 border = 56px. */
+  .field{width:100%; font:20px/1.3 var(--serif); padding:13px 16px; border-radius:12px;
+    border:2px solid rgba(16,32,43,.15); background:#fff; color:var(--petrol);
+    color-scheme:light; outline:none; text-align:center;
+    display:block; resize:none; overflow:hidden; min-height:56px; white-space:pre-wrap;
+    word-break:break-word}
+  .field::placeholder{color:rgba(16,32,43,.3); font-family:var(--sans); font-size:15px}
+  .field:focus{border-color:var(--ocra)}
+  .field[readonly]{background:rgba(16,32,43,.04); color:rgba(16,32,43,.55)}
+
+  .feedback{margin-top:16px; display:flex; align-items:flex-start; gap:9px;
+    border-radius:12px; padding:12px 14px; font-size:14px; line-height:1.5}
+  .feedback svg{width:18px; height:18px; flex:none; margin-top:2px}
+  .feedback.ok{background:var(--verde-wash); color:var(--verde)}
+  .feedback.no{background:var(--rosso-wash); color:var(--rosso)}
+  .feedback.half{background:var(--ambra-wash); color:var(--ambra)}
+  .feedback .form{font-family:var(--serif); font-size:1.16em; font-weight:700}
+  .feedback .you{font-family:var(--serif); font-size:1.08em; text-decoration:line-through;
+    opacity:.72}
+
+  .submit{width:100%; margin-top:16px; min-height:48px; padding:13px 0; border:0;
+    border-radius:12px; background:var(--petrol); color:var(--cream);
+    font:500 15px/1 var(--sans); cursor:pointer; -webkit-tap-highlight-color:transparent}
+  .submit:disabled{opacity:.35; cursor:default}
+  .dunno{width:100%; margin-top:8px; min-height:44px; border:0; background:none;
+    color:rgba(16,32,43,.45); font:500 13px/1 var(--sans); cursor:pointer}
+  .dunno:disabled{opacity:.3}
+  .reset{display:flex; align-items:center; justify-content:center; gap:6px;
+    min-height:44px; margin:14px auto 0; padding:0 14px; background:none; border:0;
+    cursor:pointer; font:12px var(--sans); color:rgba(245,238,221,.45)}
+  .reset.armed{color:var(--ocra)}
+  .reset svg{width:12px; height:12px}
+  .submit:focus-visible, .dunno:focus-visible, .reset:focus-visible{outline:2px solid var(--ocra);
+    outline-offset:2px}
+
+  /* ---- mastery ---- */
+  .mastery{margin-top:20px; display:grid; gap:11px}
+  .mrow{font-size:12.5px; color:rgba(245,238,221,.55)}
+  .mhead{display:flex; justify-content:space-between; align-items:baseline;
+    font-variant-numeric:tabular-nums}
+  .mbar{height:4px; border-radius:99px; background:rgba(245,238,221,.12);
+    overflow:hidden; margin-top:5px}
+  .mbar i{display:block; height:100%; background:var(--ocra); border-radius:99px;
+    transition:width .4s ease}
+
+  /* ---- reference tables ---- */
+  .table{background:var(--cream); color:var(--petrol); border-radius:16px;
+    padding:20px; margin-bottom:14px}
+  .table.locked{background:rgba(245,238,221,.07); color:var(--cream);
+    border:1px dashed rgba(201,154,62,.45)}
+  .thead{display:flex; justify-content:space-between; align-items:baseline;
+    gap:10px; margin-bottom:12px}
+  .tname{font-family:var(--serif); font-size:18px}
+  .tsub{font-size:11px; font-style:italic; color:rgba(16,32,43,.45); text-align:right}
+  .table.locked .tsub{color:rgba(245,238,221,.4)}
+  .grid{display:grid; grid-template-columns:1fr 1fr; column-gap:16px}
+  @media (max-width:400px){ .grid{grid-template-columns:1fr} }
+  .prow{display:flex; justify-content:space-between; gap:8px; padding:5px 0;
+    border-bottom:1px solid rgba(16,32,43,.1); font-size:15px}
+  .table.locked .prow{border-bottom-color:rgba(245,238,221,.12)}
+  .ppron{color:rgba(16,32,43,.5); flex:none}
+  .table.locked .ppron{color:rgba(245,238,221,.4)}
+  .pform{font-family:var(--serif); font-weight:500; text-align:right}
+  .thread{color:var(--ocra-ink); font-weight:700}
+  .table.locked .thread{color:var(--ocra)}
+  .badge-new{font-size:9.5px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ocra); border:1px solid var(--ocra);
+    border-radius:4px; padding:2px 5px; flex:none}
+  .tfoot{font-size:11.5px; line-height:1.65; margin:11px 0 0; color:rgba(16,32,43,.55)}
+  .table.locked .tfoot{color:rgba(245,238,221,.5)}
+  .tfoot b{color:inherit; font-weight:700}
+  .say{font-family:var(--sans); font-size:.92em; letter-spacing:.02em; opacity:.8}
+
+  .note{font-size:11.5px; line-height:1.75; color:rgba(245,238,221,.45);
+    padding:0 4px; margin:16px 0 0}
+  .note b{color:var(--ocra); font-weight:600}
+  .note .it{font-family:var(--serif); font-size:1.15em; color:rgba(245,238,221,.72)}
+  .trap{font-size:12.5px; line-height:1.7; color:rgba(245,238,221,.52);
+    border-left:2px solid rgba(201,154,62,.5); padding:2px 0 2px 11px; margin:12px 4px 0}
+  .trap b{color:var(--ocra); font-weight:600}
+  .trap .it{font-family:var(--serif); font-size:1.15em; color:var(--cream)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home" href="../index.html">← Italiano</a>
+  <div class="eyebrow">un verbo, otto tabelle</div>
+  <h1 lang="it">essere</h1>
+  <p class="kicker"><b>📖 Repetition practice — not a test.</b> Open the Tabelle tab whenever you
+  want; looking is free, and the counter simply won't score an item you looked up. Your tutor's
+  ✓/✗ in the session sheets stays the real measure. Your place is saved as you go.</p>
+
+  <div class="tabs" role="tablist" aria-label="Drill o tabelle">
+    <span class="thumb" id="thumb" aria-hidden="true"></span>
+    <button class="tab" role="tab" id="tab-drill" aria-controls="pane-drill" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+      Drill
+    </button>
+    <button class="tab" role="tab" id="tab-table" aria-controls="pane-table" aria-selected="false"
+            tabindex="-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 5.5A2 2 0 0 1 6 4h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 18.5A2 2 0 0 1 6 17h13"/></svg>
+      Tabelle
+    </button>
+  </div>
+
+  <div class="viewport" id="viewport">
+    <div class="track" id="track">
+
+      <!-- ============ DRILL ============ -->
+      <section class="pane" id="pane-drill" role="tabpanel" aria-labelledby="tab-drill" tabindex="0">
+        <div class="score">
+          <span id="scoreLeft">nessun tentativo</span>
+          <b id="scoreRight"></b>
+        </div>
+
+        <div class="card">
+          <div class="card-person" lang="it" id="cuePronoun">—</div>
+          <div class="card-tense" id="cueLabel">—</div>
+          <div class="card-sub" id="cueSub"></div>
+          <textarea class="field" id="field" rows="1" lang="it" autocapitalize="off"
+                 autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="done"
+                 data-1p-ignore data-lpignore="true" data-form-type="other"
+                 aria-label="Scrivi la forma" aria-describedby="cuePronoun cueLabel"
+                 placeholder="scrivi la forma…"></textarea>
+          <div id="feedbackSlot" role="status" aria-live="polite"></div>
+          <button class="submit" id="submit" disabled>Controlla</button>
+          <button class="dunno" id="dunno">non lo so — mostra la risposta</button>
+        </div>
+
+        <div class="mastery" id="mastery"></div>
+
+        <button class="reset" id="reset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4.5V9h4.5"/></svg>
+          <span id="resetLabel">ricomincia da zero</span>
+        </button>
+      </section>
+
+      <!-- ============ TABELLE ============ -->
+      <section class="pane" id="pane-table" role="tabpanel" aria-labelledby="tab-table"
+               tabindex="0" hidden>
+        <div id="tables"></div>
+
+        <p class="note"><b>The common thread.</b> <span class="it" lang="it">sar-</span> is one
+        stem with two sets of endings — futuro and condizionale. <span class="it" lang="it">si-</span>
+        runs the whole congiuntivo presente, and its <span class="it" lang="it">-iamo / -iate</span>
+        endings are the same for every verb in the language, so they're worth learning once.</p>
+
+        <div class="trap"><b>One <span class="it" lang="it">m</span> separates the two tenses.</b>
+          <span class="it" lang="it">saremo</span> = we <i>will</i> be ·
+          <span class="it" lang="it">saremmo</span> = we <i>would</i> be. Same stakes for
+          <i>voi</i>, but a different letter: <span class="it" lang="it">sarete</span> (will) vs
+          <span class="it" lang="it">sareste</span> (would) — an added <b>s</b>, not a doubled
+          <b>m</b>.</div>
+        <div class="trap"><b><span class="it" lang="it">siete</span> or
+          <span class="it" lang="it">siate</span>?</b>
+          <span class="it" lang="it">Sei libero domani?</span> — a plain question.
+          <span class="it" lang="it">Spero che tu sia libero domani.</span> — after a trigger word
+          (<span class="it" lang="it">spero / penso / credo che…</span>). What decides it is the
+          trigger, not the meaning.</div>
+        <div class="trap"><b>The top three congiuntivo rows are identical.</b>
+          <span class="it" lang="it">sia / sia / sia</span> — so
+          <span class="it" lang="it">Penso che sia</span> covers io, tu <i>and</i> lui. It feels
+          underspecified; it isn't.</div>
+        <div class="trap"><b>Imperfetto takes none of the regular endings.</b> Other verbs go
+          <span class="it" lang="it">-vo -vi -va</span>
+          (<span class="it" lang="it">facevo, bevevo</span>).
+          <span class="it" lang="it">essere</span> has its own set —
+          <span class="it" lang="it">ero, eri, era</span> — and only <i>noi</i> and <i>voi</i> show
+          a <b>v</b> at all (<span class="it" lang="it">eravamo, eravate</span>).</div>
+        <div class="trap"><b><span class="it" lang="it">siamo</span> does triple duty</b> —
+          presente, congiuntivo <i>and</i> imperativo, all <i>noi</i>. So do
+          <span class="it" lang="it">siate</span> (congiuntivo + imperativo) and
+          <span class="it" lang="it">sia</span> (congiuntivo + the polite <i>Lei</i> command).</div>
+
+        <p class="note">The dashed tables are <b>read-only</b>: essere's own forms there have never
+        been graded in a session, so they stay out of the drill. Open them, read them, say them —
+        that's the point. The five solid tables are the ones <b>in the drill pool</b> — which is not
+        the same as "graded". <b>Condizionale is in the pool on the strength of the futuro table, not
+        on evidence:</b> a 2026-07-26 audit of the deck and every lesson log found no graded
+        production of <i>sarei · saresti · sarebbe · saremmo</i>, ever. Drill it freely, but don't
+        read its presence here as a pass. Conjugation patterns for
+        the other verbs live in <a href="10-verbi.html" style="color:var(--ocra)">Verbi</a>.</p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ================================================================== *
+ * 1. STORAGE
+ * Served from a real origin (GitHub Pages), so localStorage works — verified
+ * 2026-07-26. Still guarded: it throws in Safari private mode.
+ * ================================================================== */
+const KEY = "essere-drill/v1";
+let LS_OK = false;
+try{
+  localStorage.setItem("__t", "1");
+  LS_OK = localStorage.getItem("__t") === "1";
+  localStorage.removeItem("__t");
+}catch(e){ LS_OK = false; }
+const mem = Object.create(null);
+const store = {
+  get(k){ if(LS_OK){ try{ return localStorage.getItem(k); }catch(e){} } return mem[k] ?? null; },
+  set(k,v){ mem[k] = v; if(LS_OK){ try{ localStorage.setItem(k,v); }catch(e){} } }
+};
+
+let state = { stats:{} };
+let saveTimer = null;
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(flush, 300); }
+function flush(){
+  clearTimeout(saveTimer); saveTimer = null;
+  try{ store.set(KEY, JSON.stringify(state)); }catch(e){}
+}
+addEventListener("pagehide", flush);
+addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") flush(); });
+
+/* ================================================================== *
+ * 2. THE PARADIGM — one source of truth for drill and tables
+ *
+ * `taught` gates the drill pool (input before retrieval). Each flag carries the
+ * evidence that set it, so it can be audited instead of trusted:
+ *   pres  taught — in daily use since the first sessions
+ *   imp   taught — 10-verbi.html "Imperfetto — hidden-stem verbs"
+ *   fut   taught — 10-verbi.html, G-017 contracted-stem family
+ *   cond  UNVERIFIED — this flag was set from "same table as fut", which is not
+ *         evidence. A 2026-07-26 audit of review-deck.md + all 19 lesson logs
+ *         found NO graded production of sarei/saresti/sarebbe/saremmo, ever.
+ *         Left in the pool, and NOT because P1 was relaxed. The learner's point
+ *         (2026-07-26) is narrower and worth getting right: a catalogue may list
+ *         what he has not been taught — that is just future-proofing the data —
+ *         because HE picks what to practise and will not pick untaught cells.
+ *         "Don't serve me untaught material" survives; what changed is who does
+ *         the selecting. The 2026-07-26 `fossimo` incident was a violation
+ *         precisely because the SHEET chose it for him. So: a tutor must never
+ *         put this tense in a worksheet or a graded item, and must not read a
+ *         hit here as retention. See reference/50-coniugazioni.html, which
+ *         carries the distinction as a visible evidence tier, not a boolean.
+ *   cpre  taught — 10-verbi.html "Congiuntivo presente", G-002
+ *   cimp  NOT taught for ESSERE — and the gate below stays false. Stated on its own
+ *         evidence rather than by citing another page: essere carries cimp:"new" in
+ *         50-coniugazioni.html, and G-022 (foss-) sits at box = pre with a blank
+ *         next-due, i.e. banked by a tutor authoring error and never actually taught.
+ *         (The mood itself IS taught since 2026-07-27 — class-wide, graded for potere
+ *         and sapere — so the old note here, which cited 10-verbi.html for "only ever
+ *         taught for avere", was true of neither the mood nor that page by 07-28.
+ *         Corrected 2026-07-28. The lesson is in the citation, not the fact: a flag
+ *         whose evidence lives on another page goes stale the day that page is right.)
+ *   ppro  the TENSE is taught (G-001, G-010 at Box 4) but essere's own participle
+ *         `stato` has never been graded — read-only until it is
+ *   impv  the MOOD is taught (V-018, V-023) but essere's `sii` has never been
+ *         graded — read-only until it is
+ * `persons` overrides the default labels: the imperative has NO third person;
+ * `sia`/`siano` are the polite Lei/Loro commands.
+ * ================================================================== */
+const PRONOUNS = ["io","tu","lui/lei","noi","voi","loro"];
+const TENSES = [
+  { id:"pres", label:"Presente", sub:"adesso, sempre", taught:true, thread:null,
+    forms:["sono","sei","è","siamo","siete","sono"] },
+  { id:"imp",  label:"Imperfetto", sub:"lo sfondo del passato", taught:true, thread:"er",
+    forms:["ero","eri","era","eravamo","eravate","erano"],
+    foot:"A memory hook, not a stem: <b>er-</b> starts all six, but essere takes none "
+       + "of the regular <b>-vo -vi -va</b> endings." },
+  { id:"fut",  label:"Futuro", sub:"accadrà", taught:true, thread:"sar",
+    forms:["sarò","sarai","sarà","saremo","sarete","saranno"] },
+  { id:"cond", label:"Condizionale", sub:"ipotesi, cortesia", taught:true, thread:"sar",
+    forms:["sarei","saresti","sarebbe","saremmo","sareste","sarebbero"] },
+  { id:"cpre", label:"Congiuntivo presente", sub:"dubbio, opinione", taught:true, thread:"si",
+    forms:["sia","sia","sia","siamo","siate","siano"],
+    foot:"Stem <b>si-</b> plus the endings <b>-a -a -a -iamo -iate -ano</b> — the same "
+       + "<b>-iamo / -iate</b> every Italian verb uses." },
+  { id:"cimp", label:"Congiuntivo imperfetto", sub:"se… (irreale)", taught:false, thread:"foss",
+    forms:["fossi","fossi","fosse","fossimo","foste","fossero"],
+    foot:"Stem <b>foss-</b> — except <i>voi</i>, which has a single s (<i>foste</i>). "
+       + "<span class='say'>fossi = FOS-see · fossimo = FOS-see-moh · foste = FOS-teh · "
+       + "fossero = FOS-seh-roh</span>" },
+  { id:"ppro", label:"Passato prossimo", sub:"avvenuto, concluso", taught:false, thread:null,
+    forms:["sono stato","sei stato","è stato","siamo stati","siete stati","sono stati"],
+    foot:"With <b>essere</b> the participle agrees with the subject, so the ending changes: "
+       + "<i>sono stato</i> (m.) / <i>sono stata</i> (f.) / <i>siamo stati</i> / "
+       + "<i>siamo state</i>. <span class='say'>stato = STAH-toh</span>" },
+  { id:"impv", label:"Imperativo", sub:"un ordine, un invito", taught:false, thread:null,
+    persons:["—","tu","Lei","noi","voi","Loro"],
+    forms:[null,"sii","sia","siamo","siate","siano"],
+    foot:"There is <b>no third person</b> — <i>sia</i> and <i>siano</i> are the polite "
+       + "<b>Lei</b> and <b>Loro</b> commands (<i>Scusi, sia paziente</i>). And no <i>io</i>: "
+       + "you can't order yourself. The negative <i>tu</i> form is an infinitive — "
+       + "<b>non essere</b>, never <i>non sii</i>. <span class='say'>sii = SEE-ee · "
+       + "siate = see-AH-teh</span>" }
+];
+const BY_ID = {}; TENSES.forEach(t => { BY_ID[t.id] = t; });
+const POOL = TENSES.filter(t => t.taught);
+const personsOf = t => t.persons || PRONOUNS;
+
+/* ================================================================== *
+ * 3. GRADING
+ * Accent-only slips count as HALF, matching CLAUDE.md's rule (reconfirmed by the
+ * learner 2026-07-25) — not full credit, which would let the accent go un-drilled
+ * while the bar filled up. `è` is exempt: stripped it collides with `e` ("and"),
+ * a different word entirely.
+ * ================================================================== */
+const ACCENT_EXEMPT = new Set(["è"]);
+const strip = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const norm  = s => s.trim().toLowerCase().replace(/\s+/g, " ");
+function judge(typed, target){
+  const a = norm(typed), b = norm(target);
+  if(!a) return "empty";
+  if(a === b) return "right";
+  if(!ACCENT_EXEMPT.has(b) && strip(a) === strip(b)) return "accent";
+  return "wrong";
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+/* ================================================================== *
+ * 4. ITEM PICKING
+ * A missed item must come back SOON. The unseen bonus alone would pin the whole
+ * first pass into a fixed 30-item sweep, so a fresh miss outranks it.
+ * ================================================================== */
+const ik = (tid, pi) => tid + ":" + pi;
+function statOf(tid, pi){
+  const st = state.stats[ik(tid, pi)];
+  if(!st || typeof st !== "object") return { seen:0, right:0, last:-999 };
+  return { seen:Number(st.seen)||0, right:Number(st.right)||0, last:Number(st.last)||-999 };
+}
+function pick(){
+  const cands = [];
+  POOL.forEach(t => t.forms.forEach((f, pi) => { if(f) cands.push({ tid:t.id, pi }); }));
+  if(!cands.length) return null;
+  let best = null, top = -Infinity;
+  const seq = state.seq || 0;
+  cands.forEach(c => {
+    if(cands.length > 1 && state.cur && state.cur.tid === c.tid && state.cur.pi === c.pi) return;
+    const st = statOf(c.tid, c.pi);
+    const acc = st.seen ? st.right / st.seen : 0;
+    const age = Math.min(seq - st.last, 40);
+    let s = (st.seen === 0 ? 100 : 0) + (1 - acc) * 30 + age + Math.random() * 6;
+    if(st.seen && acc < 0.5 && age >= 2) s += 200;
+    if(s > top){ top = s; best = c; }
+  });
+  return best;
+}
+
+/* ================================================================== *
+ * 5. DRILL
+ * ================================================================== */
+const elField = $("field"), elSubmit = $("submit"), elDunno = $("dunno"), elSlot = $("feedbackSlot");
+
+/* ---- the answer field, and keeping the question above the keyboard (2026-07-27) ------------
+ * Two learner reports, Chrome on iPhone, both fixed here and identically in 50-coniugazioni.html:
+ *
+ * 1. Tapping the answer box popped the browser's saved-ID/password suggestion bubble above the
+ *    keyboard — always EMPTY, since this page has no login. The field was a bare <input> with no
+ *    type= and no name=, inside no <form>: exactly the shape the autofill heuristic treats as a
+ *    candidate username field, and `autocomplete="off"` is deliberately ignored by it. It is now
+ *    a <textarea rows="1">, which is not an autofill candidate — removing the heuristic instead
+ *    of arguing with it. Do NOT add a name= "for correctness": there is no form, and a name only
+ *    re-feeds the heuristic this swap exists to evict. Enter is safe — the keydown handler
+ *    preventDefault()s before anything else, so no newline can be typed.
+ *
+ * 2. The keyboard covered the question and the input. Three decisions below are load-bearing:
+ *    · WHY window, not .viewport — .viewport is `overflow:clip` (bc3f437, deliberate), and
+ *      `clip` is by spec NOT a scroll container, so scrollIntoView/caret-reveal inside it do
+ *      nothing. The document is the only scroller here.
+ *    · WHY visualViewport-resize-driven, not a setTimeout — iOS animates the keyboard in over
+ *      ~300ms firing `resize` throughout; one timed shot lands mid-animation. This routine is
+ *      idempotent, so re-running is free. (window `resize` is useless: WebKit does not resize
+ *      the LAYOUT viewport for the keyboard, only the visual one.)
+ *    · WHY focusout must never scroll — on iOS, tapping Controlla sequences mousedown →
+ *      focusout → mouseup → click; scrolling in focusout moves the hit-test target and the tap
+ *      is silently eaten. focusout clears state, nothing more.
+ * Unlike 50-coniugazioni.html, #field here is static markup that is never destroyed, and
+ * #feedbackSlot sits ABOVE the button, so the frame is simply cuePronoun → submit. */
+function autoGrow(el){
+  if(!el) return;
+  el.style.height = "auto";
+  el.style.height = (el.scrollHeight + (el.offsetHeight - el.clientHeight)) + "px";
+}
+function setField(text){ elField.value = text; autoGrow(elField); }
+
+let kbFieldFocused = false, frameBackstop = 0;
+function frameField(behavior){
+  const vv = window.visualViewport;
+  if(!vv || !kbFieldFocused) return;
+  if(document.activeElement !== elField) return;
+  const top = $("cuePronoun");
+  if(!top || !elSubmit) return;
+  const kbInset = window.innerHeight - (vv.offsetTop + vv.height);
+  if(kbInset < 80) return;                 // no software keyboard up (desktop) — leave it alone
+  const PAD = 12, y = window.scrollY;
+  const frameTop = top.getBoundingClientRect().top + y - PAD;
+  const frameBot = elSubmit.getBoundingClientRect().bottom + y + PAD;
+  const bandBot = y + vv.offsetTop + vv.height;               // keyboard top, in document coords
+  let target = y;
+  if(frameBot > bandBot) target = y + (frameBot - bandBot);   // lift the frame clear of the keyboard
+  // ...but the QUESTION wins if the frame is taller than the band: Enter already submits, so
+  // the button being visible is secondary to the cue being visible. That is the actual complaint.
+  if(frameTop < target + vv.offsetTop) target = frameTop - vv.offsetTop;
+  target = Math.max(0, Math.round(target));
+  if(Math.abs(target - y) < 2) return;
+  window.scrollTo({ top: target, behavior: behavior || "auto" });
+}
+/* Re-frame after the card grows a feedback block. .viewport animates its height over .34s and
+ * clips, so freshly-added feedback is genuinely CLIPPED until the animation lands. transitionend
+ * alone is not enough: prefers-reduced-motion sets `transition:none !important`, and syncHeight
+ * re-setting an unchanged height starts no transition — in both cases it never fires. The
+ * immediate pass covers those (the height change is instant there), transitionend keeps the
+ * animated case snappy, the timeout is the backstop. All three are idempotent. */
+function frameFieldSettled(){
+  frameField("auto");
+  const vp = $("viewport");
+  if(vp) vp.addEventListener("transitionend", onFrameTransitionEnd);
+  clearTimeout(frameBackstop);
+  frameBackstop = setTimeout(() => { detachFrameTransition(); frameField("smooth"); }, 420);
+}
+function onFrameTransitionEnd(e){
+  if(e.propertyName !== "height") return;
+  detachFrameTransition(); clearTimeout(frameBackstop);
+  frameField("smooth");
+}
+function detachFrameTransition(){
+  const vp = $("viewport");
+  if(vp) vp.removeEventListener("transitionend", onFrameTransitionEnd);
+}
+elField.addEventListener("focus", () => {
+  kbFieldFocused = true;
+  frameField("auto");   // covers the keyboard-already-up path, where no resize ever fires
+});
+elField.addEventListener("blur", () => {
+  kbFieldFocused = false;   // state only — scrolling here eats the Controlla tap (see above)
+  detachFrameTransition(); clearTimeout(frameBackstop);
+});
+if(window.visualViewport) window.visualViewport.addEventListener("resize", () => frameField("auto"));
+
+const ICONS = {
+  ok:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"'
+     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  no:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"'
+     + ' stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  half:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"'
+     + ' stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 16.5v.5"/>'
+     + '<circle cx="12" cy="12" r="9"/></svg>'
+};
+
+function renderCue(){
+  const c = state.cur;
+  if(!c){
+    $("cuePronoun").textContent = "—";
+    $("cueLabel").textContent = "nessun tempo disponibile";
+    $("cueSub").textContent = "No taught tense is in the pool.";
+    elField.readOnly = true; elSubmit.disabled = true; elDunno.disabled = true;
+    return;
+  }
+  const t = BY_ID[c.tid];
+  $("cuePronoun").textContent = personsOf(t)[c.pi];
+  $("cueLabel").textContent = t.label;
+  $("cueSub").textContent = t.sub;
+}
+function renderScore(){
+  const a = state.attempts || 0, k = state.correct || 0;
+  $("scoreLeft").textContent = a ? k + "/" + a + " corrette" : "nessun tentativo";
+  $("scoreRight").textContent = a ? Math.round(k / a * 100) + "%" : "";
+}
+function renderMastery(){
+  $("mastery").innerHTML = POOL.map(t => {
+    let tried = 0, score = 0, total = 0;
+    t.forms.forEach((f, pi) => {
+      if(!f) return;
+      total++;
+      const st = statOf(t.id, pi);
+      if(st.seen){ tried++; score += st.right / st.seen; }
+    });
+    const pct = total ? Math.round(score / total * 100) : 0;
+    return '<div class="mrow"><div class="mhead"><span>' + esc(t.label)
+      + "</span><span>" + pct + "% · " + tried + "/" + total
+      + '</span></div><div class="mbar"><i style="width:' + pct + '%"></i></div></div>';
+  }).join("");
+}
+/* feedback is persisted as DATA and rebuilt — never stored HTML re-injected */
+function buildFeedback(fb){
+  const t = BY_ID[fb.tid]; if(!t) return "";
+  const target = t.forms[fb.pi], person = personsOf(t)[fb.pi];
+  const F = '<span class="form" lang="it">' + esc(target) + "</span>";
+  if(fb.kind === "primed")
+    return "The answer was open in Tabelle — " + F + ". Not scored, so it'll come round again.";
+  if(fb.kind === "right")  return "Esatto — " + F + ".";
+  if(fb.kind === "accent")
+    return "Right form, accent missing — " + F + ". Counts as half: the written accent is "
+         + "part of the word.";
+  if(fb.kind === "shown")
+    return F + " (" + esc(person) + "). Say it out loud once. Counted as a miss so it comes "
+         + "back soon.";
+  return 'You wrote <span class="you" lang="it">' + esc(fb.typed || "") + "</span> — it's "
+       + F + ", " + esc(t.label.toLowerCase()) + " " + esc(person) + ".";
+}
+const TONE = { right:"ok", accent:"half", primed:"half", shown:"no", wrong:"no" };
+function showFeedback(fb){
+  state.fb = fb;
+  elSlot.innerHTML = '<div class="feedback ' + (TONE[fb.kind] || "no") + '">'
+    + (ICONS[TONE[fb.kind]] || ICONS.no) + "<span>" + buildFeedback(fb) + "</span></div>";
+}
+
+function nextItem(){
+  state.seq = (state.seq || 0) + 1;
+  state.cur = pick();
+  state.draft = "";
+  state.done = false;
+  state.peeked = false;
+  state.fb = null;
+  elSlot.innerHTML = "";
+  setField("");
+  elField.readOnly = false;
+  elDunno.disabled = false;
+  elSubmit.textContent = "Controlla";
+  elSubmit.disabled = true;
+  renderCue();
+  save();
+}
+function record(credit){
+  const c = state.cur; if(!c) return;
+  const st = statOf(c.tid, c.pi);
+  st.seen++; st.right += credit; st.last = state.seq || 0;
+  state.stats[ik(c.tid, c.pi)] = st;
+  state.attempts = (state.attempts || 0) + 1;
+  state.correct = (state.correct || 0) + (credit >= 1 ? 1 : 0);
+}
+function settle(){
+  state.done = true;
+  elField.readOnly = true;      /* readOnly, not disabled — keeps the iOS keyboard up */
+  elDunno.disabled = true;
+  elSubmit.textContent = "Prossima →";
+  elSubmit.disabled = true;     /* brief lockout so a double-tap can't skip the feedback */
+  setTimeout(() => { if(state.done) elSubmit.disabled = false; }, 400);
+  renderScore(); renderMastery(); save();
+  frameFieldSettled();   // feedback just appeared in the card — bring it into view
+}
+function check(){
+  const c = state.cur; if(!c || state.done) return;
+  const t = BY_ID[c.tid], target = t.forms[c.pi];
+  const v = judge(elField.value, target);
+  if(v === "empty") return;
+  const typed = elField.value.trim();
+  if(state.peeked){
+    showFeedback({ kind:"primed", tid:c.tid, pi:c.pi, typed });
+  }else if(v === "right"){
+    record(1); showFeedback({ kind:"right", tid:c.tid, pi:c.pi, typed });
+  }else if(v === "accent"){
+    record(0.5); showFeedback({ kind:"accent", tid:c.tid, pi:c.pi, typed });
+  }else{
+    record(0); showFeedback({ kind:"wrong", tid:c.tid, pi:c.pi, typed });
+  }
+  settle();                     /* the typed answer STAYS in the field, for contrast */
+}
+
+elSubmit.addEventListener("click", () => {
+  if(state.done){ nextItem(); elField.focus(); } else check();
+});
+elDunno.addEventListener("click", () => {
+  const c = state.cur; if(!c || state.done) return;
+  record(0);
+  showFeedback({ kind:"shown", tid:c.tid, pi:c.pi, typed:elField.value.trim() });
+  settle();
+});
+elField.addEventListener("input", () => {
+  if(state.done) return;
+  autoGrow(elField);
+  elSubmit.disabled = !elField.value.trim();
+  state.draft = elField.value;
+  save();
+});
+elField.addEventListener("keydown", e => {
+  if(e.key === "Enter"){ e.preventDefault(); if(!elSubmit.disabled) elSubmit.click(); }
+});
+
+/* two-tap reset — the same safety catch the session sheets promise */
+let armed = null;
+$("reset").addEventListener("click", () => {
+  const btn = $("reset"), lab = $("resetLabel");
+  if(!armed){
+    btn.classList.add("armed"); lab.textContent = "sicuro? toccalo di nuovo";
+    armed = setTimeout(() => {
+      armed = null; btn.classList.remove("armed"); lab.textContent = "ricomincia da zero";
+    }, 4000);
+    return;
+  }
+  clearTimeout(armed); armed = null;
+  btn.classList.remove("armed"); lab.textContent = "ricomincia da zero";
+  state.stats = {}; state.correct = 0; state.attempts = 0; state.seq = 0;
+  nextItem(); renderScore(); renderMastery();
+});
+
+/* ================================================================== *
+ * 6. TABLES
+ * ================================================================== */
+$("tables").innerHTML = TENSES.map(t => {
+  const persons = personsOf(t);
+  const rows = persons.map((p, i) => {
+    const f = t.forms[i];
+    let shown;
+    if(!f){ shown = "—"; }
+    else if(t.thread && f.startsWith(t.thread)){
+      shown = '<span class="thread">' + esc(t.thread) + "</span>" + esc(f.slice(t.thread.length));
+    }else{ shown = esc(f); }
+    return '<div class="prow"><span class="ppron">' + esc(p)
+      + '</span><span class="pform" lang="it">' + shown + "</span></div>";
+  }).join("");
+  return '<div class="table' + (t.taught ? "" : " locked") + '">'
+    + '<div class="thead"><span class="tname" lang="it">' + esc(t.label) + "</span>"
+    + (t.taught ? '<span class="tsub">' + esc(t.sub) + "</span>"
+                : '<span class="badge-new">da leggere</span>')
+    + '</div><div class="grid">' + rows + "</div>"
+    + (t.foot ? '<p class="tfoot">' + t.foot + "</p>" : "")
+    + "</div>";
+}).join("");
+
+/* ================================================================== *
+ * 7. TABS
+ * ================================================================== */
+const tabs = [$("tab-drill"), $("tab-table")];
+const panes = [$("pane-drill"), $("pane-table")];
+const viewport = $("viewport"), track = $("track"), thumb = $("thumb");
+let activeIdx = 0;
+
+function syncHeight(){
+  const h = panes[activeIdx].getBoundingClientRect().height;
+  if(h) viewport.style.height = (Math.ceil(h) + 2) + "px";   /* +2: no clipped focus ring */
+  if(kbFieldFocused) frameField("auto");   /* the card grew under an open keyboard — re-frame */
+}
+function selectTab(idx){
+  activeIdx = idx;
+  panes.forEach((p, i) => {
+    p.hidden = false;
+    if(i === idx){ p.removeAttribute("inert"); p.removeAttribute("aria-hidden"); }
+    else{ p.setAttribute("inert", ""); p.setAttribute("aria-hidden", "true"); }
+  });
+  tabs.forEach((t, i) => {
+    t.setAttribute("aria-selected", i === idx ? "true" : "false");
+    t.tabIndex = i === idx ? 0 : -1;
+  });
+  track.classList.toggle("right", idx === 1);
+  thumb.classList.toggle("right", idx === 1);
+  syncHeight();
+  /* Opening the answer table mid-item is allowed and free — but it primes the
+     item, so that attempt is shown and NOT scored (CLAUDE.md's `✓ primed`). */
+  if(idx === 1 && state.cur && !state.done) state.peeked = true;
+  state.tab = idx; save();
+}
+tabs.forEach((t, i) => {
+  t.addEventListener("click", () => selectTab(i));
+  t.addEventListener("keydown", e => {
+    let n = null;
+    if(e.key === "ArrowRight") n = (i + 1) % tabs.length;
+    else if(e.key === "ArrowLeft") n = (i - 1 + tabs.length) % tabs.length;
+    else if(e.key === "Home") n = 0;
+    else if(e.key === "End") n = tabs.length - 1;
+    if(n === null) return;
+    e.preventDefault(); selectTab(n); tabs[n].focus();
+  });
+});
+new ResizeObserver(syncHeight).observe(panes[0]);
+new ResizeObserver(syncHeight).observe(panes[1]);
+addEventListener("resize", syncHeight);
+
+/* ================================================================== *
+ * 8. BOOT
+ * ================================================================== */
+(function boot(){
+  try{
+    const raw = store.get(KEY);
+    let parsed = null;
+    try{ parsed = raw ? JSON.parse(raw) : null; }catch(e){ parsed = null; }
+    if(parsed && typeof parsed === "object" && !Array.isArray(parsed)) state = parsed;
+    if(!state.stats || typeof state.stats !== "object" || Array.isArray(state.stats)){
+      state.stats = {};
+    }
+    const c = state.cur;
+    const valid = c && typeof c === "object" && BY_ID[c.tid]
+      && POOL.some(t => t.id === c.tid)
+      && Number.isInteger(c.pi) && BY_ID[c.tid].forms[c.pi];
+    if(!valid){
+      nextItem();
+    }else if(state.done && state.fb && BY_ID[state.fb.tid]){
+      setField(typeof state.fb.typed === "string" && state.fb.typed
+        ? state.fb.typed : BY_ID[c.tid].forms[c.pi]);
+      elField.readOnly = true; elDunno.disabled = true;
+      elSubmit.textContent = "Prossima →"; elSubmit.disabled = false;
+      showFeedback(state.fb);
+    }else if(state.done){
+      nextItem();
+    }else{
+      setField(typeof state.draft === "string" ? state.draft : "");
+      elSubmit.disabled = !elField.value.trim();
+    }
+  }catch(e){
+    state = { stats:{} };
+    nextItem();
+  }
+
+  renderCue(); renderScore(); renderMastery();
+  document.documentElement.classList.add("no-anim");
+  selectTab(state.tab === 1 ? 1 : 0);
+  requestAnimationFrame(() => {
+    syncHeight();
+    requestAnimationFrame(() => document.documentElement.classList.remove("no-anim"));
+  });
+  flush();
+})();
+</script>
+
+</body>
+</html>
