@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<!-- ============================================================================
+  _sheet-base.html  —  SHARED ENGINE for warm-ups, worksheets, and recall drills.
+  (v0.26, 2026-07-25 — multi-input items; "Quaderno Romano" look from v0.25.)
+  The single scaffold the
+  per-session sheets COPY from, so the design tokens · the map · the 📝 remark
+  field · the TTS section · per-card gating · the in-flow "Consegna" hand-in
+  card are a copy-from-template FACT, not something the tutor must remember
+  (principle P4).
+
+  HOW TO MAKE A SESSION SHEET:
+    1. Copy this file to lessons/NNN-YYYY-MM-DD/<warmup|worksheet>.html
+       (or homework/recall-drills.html).
+    2. Edit ONLY the CONFIG block below (title, map, cards, flags). Nothing else.
+    3. Set CONFIG.progressive=true for the in-session worksheet (card-by-card,
+       enforces P2: each card has "Copy this section → continue" which copies
+       THAT card and unlocks the next — so the learner pastes per section and
+       the tutor checks per section, never a wall). Leave false for
+       warm-ups/drills.
+
+  CARD/ITEM CONTRACT (see the DEMO CONFIG):
+    card  = { tag, title, explain(HTML, optional), tts(bool, optional), items[] }
+    item  = { id, prompt(HTML) }                          → free-text input
+            { id, prompt, blank:true }                    → INLINE cloze: EVERY
+              literal "___" inside prompt becomes its own small underlined
+              field mid-sentence, instead of a separate box below. prompt must
+              keep the literal "___" in CONFIG — that string is what
+              cardText()/the hand-off read back, NEVER the live <input> markup
+              (never scrape DOM innerHTML for this — see cardText()'s comment).
+              MULTI-GAP IS NOW ALLOWED (v0.26, learner request 2026-07-25:
+              「1A, 1Bの空欄補充も４Aみたいな形で出題して」). A two-gap sentence such
+              as "Se (io) ___ (avere)…, ___ (comprare)…" renders as two inline
+              fields and hands back numbered — "→ [1] avessi   [2] comprerei"
+              — so the old one-blank-per-item rule is no longer needed: two
+              gaps can never collapse into one ambiguous "→ answer".
+              CAUTION: every literal ___ becomes a field, including one sitting
+              in the English prose wrapped around the sentence — write "gap"
+              there, never ___.
+            { id, prompt, parts:["label1","label2"] }     → one labelled box per
+              sub-question, for an item that asks two things at once (v0.26,
+              same request: 「２つ問題だすときは、入力欄も２つにわけてよ」). Use this
+              instead of packing two questions into one q string — the
+              hand-off then labels each answer instead of running them
+              together. Works with audio items too.
+            { id, prompt, opts:[...], a:"correct" }        → multiple choice
+            { id, audio:"Italian…", who?, prompt/q, ... }  → TTS (needs card.tts)
+
+    PRECEDENCE (one-way, decided once in itemShape()): blank ▸ parts ▸ opts ▸
+    text. Combining blank with parts/opts, or parts with opts, is an authoring
+    error — the loser is ignored and the console warns. Do not rely on it.
+
+    GRADING INTEGRITY — never make "write a dash" (or any typed token) the way
+    a learner says "none of the above". Blank is equally what "I don't know"
+    looks like, so the two answers become indistinguishable at grading time and
+    the item yields NO data. Cost a real G-016 data point on 2026-07-25. When
+    "none" is a valid answer, use opts:[…] with an explicit "— nessuna" choice.
+
+  ITALIAN TEXT: wrap any Italian inside explain/prompt HTML in
+  <span lang="it">…</span> (or let it ride inside .heard / <i> / <code>,
+  which already inherit the Italian voice). [lang=it] switches to the serif
+  face at a slightly larger size — the visual signal that this is the target
+  language, not UI chrome. Plain English/UI prose stays in the sans font.
+
+  NO FIXED BOTTOM BAR. Save for tutor / Copy ALL / Clear all live in the
+  in-flow "Consegna" (hand-in) card at the end of the page, after the remark
+  field — it scrolls with the page like everything else, never pinned to the
+  viewport.
+============================================================================= -->
+<title>Sheet</title>
+<style>
+  /* ---- tokens — "Quaderno Romano" (v0.25) ---- */
+  :root{
+    --paper:#F2EDE2; --card:#FFFDF7; --ink:#241E14; --ink-2:#57503F;
+    --line:#E0D8C6; --accent:#215E46; --accent-wash:#E3EDE4;
+    --ocra:#B9882F; --rosso:#A8352E; --espresso:#3E3428;
+    --font-it: ui-serif, "New York", Charter, Georgia, serif;
+    --font-ui: "Avenir Next", Avenir, Seravek, system-ui, -apple-system, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --r-card:16px; --r-ctl:10px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.6 var(--font-ui);
+    padding:0 max(16px, env(safe-area-inset-left)) max(40px, env(safe-area-inset-bottom));}
+  .wrap{max-width:720px; margin:0 auto}
+
+  /* ---- sticky STATUS strip (top — never fights the keyboard) ---- */
+  .statusbar{position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:12px;
+    background:color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); margin:0 calc(-1 * max(16px, env(safe-area-inset-left)));
+    padding:9px max(16px, env(safe-area-inset-left)); min-height:38px;}
+  .statusbar.scrolled{box-shadow:0 1px 8px rgba(36,30,20,.08)}
+  .sb-title{font-size:12.5px; font-weight:600; color:var(--ink-2); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;}
+  .sb-meta{margin-left:auto; font-size:12px; color:var(--ink-2); white-space:nowrap; font-variant-numeric:tabular-nums}
+  .sb-meta b{color:var(--accent); font-weight:600}
+  .sb-btn{appearance:none; -webkit-appearance:none; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-2); font:inherit; font-size:13px; line-height:1;
+    padding:7px 10px; border-radius:9px; cursor:pointer; flex:none; min-height:32px;
+    display:inline-flex; align-items:center; gap:5px; -webkit-tap-highlight-color:transparent;}
+  .sb-btn:active{background:var(--paper); transform:translateY(1px)}
+  .sb-btn .lbl{font-size:12.5px; font-weight:600}
+  @media (max-width:380px){ .sb-btn .lbl{display:none} }
+
+  h1{font-family:var(--font-it); font-size:26px; line-height:1.25; font-weight:600; margin:24px 0 4px; letter-spacing:-.01em}
+  .sub{color:var(--ink-2); font-size:13.5px; line-height:1.5; margin:0 0 24px}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card);
+    padding:20px; margin-bottom:20px; scroll-margin-top:52px;}
+
+  /* ---- eyebrow (replaces the 5-hue pill rainbow; derived from the SAME card.tag string) ---- */
+  .eyebrow{display:flex; align-items:center; gap:7px; font-size:11px; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2); margin-bottom:6px}
+  .dot{width:6px; height:6px; border-radius:999px; background:var(--accent); flex:0 0 auto}
+  .dot.listen{background:var(--ocra)}
+  .card h2{font-size:17px; line-height:1.35; font-weight:600; margin:0 0 14px}
+
+  /* ---- header row: tap anywhere to fold/unfold an open card ---- */
+  .head{display:flex; align-items:flex-start; gap:12px; cursor:pointer;
+    margin:-4px -4px 0; padding:4px; border-radius:12px}
+  .head:hover{background:#FAF6EC}
+  .card.locked .head{cursor:default}
+  .card.locked .head:hover{background:none}
+  .headtext{flex:1 1 auto; min-width:0}
+  /* iOS-style switch: ON = section open (green, knob right) · OFF = folded */
+  .tgl{flex:0 0 auto; width:46px; height:28px; margin-top:2px; padding:0; border:0;
+    border-radius:999px; position:relative; cursor:pointer; background:var(--accent);
+    transition:background .22s ease; -webkit-tap-highlight-color:transparent}
+  .tgl .knob{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:999px;
+    background:#fff; box-shadow:0 1px 3px rgba(36,30,20,.28); transition:transform .22s cubic-bezier(.3,.9,.3,1)}
+  .card:not(.collapsed) .tgl .knob{transform:translateX(18px)}
+  .card.collapsed .tgl{background:#CFC7B5}
+  .card.collapsed .tgl .knob{transform:none}
+  .card.locked .tgl{display:none}
+  @media (prefers-reduced-motion: reduce){ .tgl, .tgl .knob{transition:none} }
+
+  /* ---- locked OR folded: body hidden, FULL opacity (not "broken") ---- */
+  .card.locked .body, .card.collapsed .body{display:none}
+  .card.locked h2, .card.collapsed h2{margin-bottom:0}
+  .lockmsg{display:none; font-size:12.5px; color:var(--ink-2); margin-top:4px}
+  .card.locked .lockmsg{display:block}
+  .foldmsg{display:none; font-size:12.5px; color:var(--ink-2); margin-top:4px}
+  .card.collapsed:not(.locked) .foldmsg{display:block}
+  @media (prefers-reduced-motion: no-preference){
+    .card .body{animation:reveal .22s ease-out}
+    @keyframes reveal{from{opacity:0; transform:translateY(4px)}to{opacity:1; transform:none}}
+  }
+
+  .explain{font-size:14.5px; line-height:1.65; background:#FAF6EC; border:1px solid var(--line);
+    border-radius:12px; padding:14px 16px; margin:0 0 18px; color:var(--ink-2)}
+  .explain b{color:var(--ink); font-weight:600}
+  /* the SIGNATURE: Italian gets the serif voice + a hanging ochre rule */
+  [lang=it]{font-family:var(--font-it); font-size:1.14em; font-style:normal; color:var(--ink)}
+  .explain [lang=it]{display:block; padding:3px 0 3px 13px; border-left:3px solid var(--ocra); margin:10px 0}
+  /* fail-safe: legacy markup (.explain i, .heard, code) inherits the Italian voice automatically */
+  .explain i, .heard, .prompt code, .explain code{font-family:var(--font-it)}
+  .explain i{color:var(--ink); font-size:1.08em}
+  .heard{font-style:italic; color:var(--rosso); font-size:1.08em}
+  .explain code, .prompt code{background:#F0EADC; border-radius:6px; padding:1px 7px; font-size:1.02em; color:var(--ink)}
+  .why{color:var(--ink-2); font-size:.9em}
+
+  .maprow{display:flex; gap:11px; padding:9px 0; border-bottom:1px dashed var(--line); font-size:14px; line-height:1.5}
+  .maprow:last-child{border-bottom:0}
+  .maprow .ic{flex:0 0 auto; width:22px; text-align:center}
+
+  .q{margin-bottom:18px; padding-bottom:16px; border-bottom:1px dashed var(--line)}
+  .q:last-of-type{border-bottom:0; margin-bottom:0; padding-bottom:0}
+  .num{font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin-bottom:8px}
+  .prompt{font-size:16px; line-height:1.6; margin-bottom:11px; max-width:58ch}
+
+  .players{display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin-bottom:12px}
+  .play{min-height:44px; border:1px solid var(--line); background:#FDFBF4; color:var(--ink);
+    border-radius:var(--r-ctl); padding:0 15px; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+    display:inline-flex; gap:6px; align-items:center}
+  .play.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .reveal{min-height:44px; padding:0 8px; font:inherit; font-size:13px; color:var(--ink-2);
+    cursor:pointer; text-decoration:underline; background:none; border:0}
+  .transcript{display:none; font-family:var(--font-it); font-size:16px; color:var(--ink-2);
+    font-style:italic; margin:0 0 12px; padding-left:13px; border-left:3px solid var(--ocra)}
+
+  /* ---- inline cloze blank: fixed min-width, never answer-length ---- */
+  .blank{display:inline-block; vertical-align:baseline;
+    field-sizing:content; width:8ch; min-width:7ch; max-width:100%;
+    font-family:var(--font-it); font-size:1.14em; line-height:1.3; color:var(--ink);
+    background:transparent; border:0; border-bottom:2px solid var(--ocra); border-radius:0;
+    padding:0 .3ch 2px; text-align:center;}
+  .blank:focus{outline:none; border-bottom-color:var(--accent); background:var(--accent-wash)}
+
+  .growbox{width:100%; max-width:58ch; border:1px solid var(--line); border-radius:var(--r-ctl);
+    padding:11px 13px; font:inherit; font-family:var(--font-it); font-size:17px; line-height:1.5;
+    color:var(--ink); background:#FDFBF4; resize:none; overflow:hidden; min-height:46px;
+    display:block; white-space:pre-wrap; word-break:break-word;}
+  .growbox:focus{outline:none; border-color:var(--accent); background:#fff}
+  /* v0.26 — one sub-answer of a multi-part item */
+  .sub{margin-top:10px}
+  .sub .sublab{font-size:13px; color:var(--ink-2); margin-bottom:5px; max-width:58ch}
+
+  .opts label{display:flex; align-items:center; gap:10px; min-height:44px; padding:9px 12px;
+    border:1px solid var(--line); border-radius:var(--r-ctl); margin-bottom:8px; cursor:pointer;
+    font-size:15px; background:#FDFBF4}
+  .opts label:has(input:checked){border-color:var(--accent); background:var(--accent-wash); font-weight:600}
+  .opts input{accent-color:var(--accent); width:20px; height:20px}
+
+  textarea.remarkbox{width:100%; min-height:88px; border:1px solid var(--line); border-radius:var(--r-ctl);
+    padding:12px 13px; font:inherit; font-size:15px; color:var(--ink); background:#FDFBF4; resize:vertical}
+  textarea.remarkbox:focus{outline:none; border-color:var(--accent); background:#fff}
+
+  /* ---- scroll reveal ----------------------------------------------------
+     Explanations only — the questions stay put, so the eye is drawn to what
+     to READ, not to what to answer. `.js-anim` is set by JS, so with no JS
+     (or no IntersectionObserver) everything is simply visible from the start. */
+  .js-anim .anim{opacity:0; transform:translateY(12px);
+    transition:opacity .55s ease, transform .55s cubic-bezier(.22,.9,.3,1)}
+  .js-anim .anim.in{opacity:1; transform:none}
+  /* the Italian lines rise a beat after the box they sit in */
+  .js-anim .explain [lang=it]{opacity:0; transform:translateY(8px);
+    transition:opacity .5s ease .18s, transform .5s cubic-bezier(.22,.9,.3,1) .18s}
+  .js-anim .explain.in [lang=it]{opacity:1; transform:none}
+  /* the hanging ochre rule draws itself downward */
+  .js-anim .explain [lang=it]{border-left-color:transparent; transition:opacity .5s ease .18s,
+    transform .5s cubic-bezier(.22,.9,.3,1) .18s, border-left-color .45s ease .34s}
+  .js-anim .explain.in [lang=it]{border-left-color:var(--ocra)}
+  @media (prefers-reduced-motion: reduce){
+    .js-anim .anim, .js-anim .explain [lang=it]{opacity:1; transform:none; transition:none;
+      border-left-color:var(--ocra)}
+  }
+
+  .contbtn{min-height:48px; border:0; border-radius:var(--r-ctl); padding:0 20px; font:inherit;
+    font-size:15px; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; margin-top:18px}
+  .contbtn.done{background:var(--accent-wash); color:var(--accent)}
+  .cardmsg{font-size:12.5px; color:var(--accent); margin-left:11px}
+
+  /* ---- Consegna (hand-in) card — replaces the fixed bottom bar ---- */
+  .consegna{background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:20px; margin-bottom:20px}
+  .consegna .hint{font-size:13.5px; color:var(--ink-2); margin:0 0 14px; line-height:1.55}
+  .btn-primary{display:block; width:100%; min-height:48px; border:0; border-radius:var(--r-ctl);
+    background:var(--accent); color:#fff; font:inherit; font-size:16px; font-weight:600; cursor:pointer}
+  .btn-ghost{display:block; width:100%; min-height:46px; margin-top:10px; border:1px solid var(--line);
+    border-radius:var(--r-ctl); background:#FDFBF4; color:var(--ink); font:inherit; font-size:15px; font-weight:600; cursor:pointer}
+  .btn-quiet{display:inline-block; margin-top:16px; background:none; border:0; padding:6px 0;
+    font:inherit; font-size:13px; color:var(--ink-2); text-decoration:underline; cursor:pointer}
+  .btn-quiet.armed{color:var(--rosso); font-weight:600}
+  .savedmsg{display:block; margin-top:12px; font-size:13px; line-height:1.5; color:var(--ink-2)}
+  /* The save button is the only thing the learner is looking at when he presses it, so it —
+     not a span, and not a strip somewhere else — is where the state has to show. The round
+     trip to the Drive endpoint takes 1–3s, and before this the page did NOTHING in that window,
+     which is indistinguishable from a dead button. Reported 2026-08-18; he saved twice. */
+  .btn-primary:disabled{opacity:.75; cursor:progress}
+  .btn-primary.ok{background:#1f6f45}
+  .btn-primary.warn{background:#8a5a1c}
+  .savedmsg.ok{color:#1f6f45; font-weight:600}
+  .savedmsg.warn{color:#8a5a1c; font-weight:600}
+
+  details.backup{margin-top:14px}
+  details.backup summary{font-size:13px; color:var(--ink-2); cursor:pointer}
+  #out{white-space:pre-wrap; background:var(--espresso); color:#EFE7D6; border-radius:12px;
+    padding:14px; font:13px/1.55 var(--font-mono); margin:10px 0 0; overflow-x:auto}
+
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  @media (max-width:420px){ h1{font-size:23px} .card,.consegna{padding:17px} }
+</style>
+</head>
+<body>
+<div class="statusbar" id="statusbar">
+  <button class="sb-btn" id="sb-back" onclick="sheetBack()" aria-label="Torna all'indice">←<span class="lbl">Indice</span></button>
+  <span class="sb-title" id="sb-title"></span>
+  <span class="sb-meta"><span id="prog"></span><span id="saved"></span></span>
+  <button class="sb-btn" id="sb-reload" onclick="sheetReload()" aria-label="Ricarica la pagina">↻</button>
+</div>
+
+<div class="wrap">
+  <h1 id="h-title"></h1>
+  <div class="sub" id="h-sub"></div>
+  <div id="map"></div>
+  <div id="cards"></div>
+
+  <div class="card" id="remarkcard">
+    <div class="eyebrow"><span class="dot"></span>Note to tutor</div>
+    <h2>Anything to tell me?</h2>
+    <p class="sub" style="margin:0 0 11px">Too hard / too easy? A word still fuzzy? How this sheet felt? Comes back with your answers.</p>
+    <textarea class="remarkbox" id="remark" placeholder="optional — English or Italian…"></textarea>
+  </div>
+
+  <div class="consegna">
+    <div class="eyebrow"><span class="dot"></span>Consegna</div>
+    <h2>Finished? Hand it in.</h2>
+    <p class="hint">Save sends your answers home. If it warns you it didn’t reach me, copy the text and paste it into the chat — that always works.</p>
+    <button class="btn-primary" id="savebtn" onclick="saveForTutor()">Save for tutor</button>
+    <button class="btn-ghost" onclick="copyAll()">Copy ALL as backup</button>
+    <span class="savedmsg" id="savedmsg"></span>
+    <details class="backup" id="backupwrap">
+      <summary>Backup text (if pasting failed)</summary>
+      <pre id="out"></pre>
+    </details>
+    <button class="btn-quiet" id="clearbtn" onclick="clearAll()">Clear all answers</button>
+  </div>
+</div>
+
+<script>
+/* ============================== CONFIG (edit this only) ============================== */
+const CONFIG = {
+  title: "Lezione ✏️ — L028 · 18 agosto",
+  subtitle: "Quattro sezioni. Si aprono una alla volta: fai la sezione, premi «Copia», e la prossima si sblocca.",
+  storageKey: "l028-worksheet-v1",
+  pasteHeading: "My answers — worksheet L028 (2026-08-18):",
+  progressive: true,
+  remark: true,
+  map: [
+    { ic:"1️⃣", area:"Il pronome attaccato", what:"pulirlo", why:"una parola, due pezzi" },
+    { ic:"2️⃣", area:"La parolina che sparisce", what:"venite <b>a</b> giocare", why:"la senti sparire, ma è obbligatoria" },
+    { ic:"3️⃣", area:"Quale ausiliare", what:"sono / ho", why:"non è una scelta libera" },
+    { ic:"4️⃣", area:"I tempi semplici", what:"va · andava", why:"non tutto è passato prossimo" },
+  ],
+  cards: [
+    { tag:"1 · orecchio", title:"Uno", tts:true,
+      explain:'Nella riga 2 hai scritto <span class="heard">pulire</span>. Il vero suono era <span lang="it">pulir<b>lo</b></span> — cioè <span lang="it">pulire</span> + <span lang="it">lo</span> («it»). L’italiano <b>attacca</b> il pronome alla fine dell’infinito, e l’infinito perde la sua <span lang="it">-e</span>: <span lang="it">puli<s>re</s> + lo → <b>pulirlo</b></span>. Hai sentito il verbo; il pronome viaggiava attaccato dietro.',
+      items:[
+        { id:"x1a", audio:"Devo chiamarla stasera.",
+          parts:["Write what you heard:","Now split the long word into verb + pronoun:"] },
+        { id:"x1b", blank:true, prompt:'Attacca il pronome: <span lang="it">aiutare</span> + <span lang="it">mi</span> → <span lang="it">Puoi ___?</span>' },
+        { id:"x1c", blank:true, prompt:'Attacca il pronome: <span lang="it">prendere</span> + <span lang="it">lo</span> → <span lang="it">Vado a ___.</span>' },
+      ] },
+
+    { tag:"2 · orecchio", title:"Due", tts:true,
+      explain:'Due volte oggi è sparita una parolina fra due parole grosse. Riga 3: <span lang="it">venite <b>a</b> giocare</span> → tu hai scritto <span class="heard">venete giocare</span>. E nel warm-up: <span lang="it">è lì sul tavolo</span> → <span class="heard">e ??? un tavolo</span>. Non sono parole difficili: sono <b>atone</b>, non portano accento, e in mezzo alla frase durano pochi millesimi. Ma <span lang="it">a</span> dopo un verbo di movimento è <b>obbligatoria</b>.',
+      items:[
+        { id:"x2a", audio:"Andiamo a mangiare fuori.",
+          parts:["Write what you heard:","Which little word sits between the two verbs?"] },
+        { id:"x2b", blank:true, prompt:'<span lang="it">Vengo ___ prenderti alle otto.</span>' },
+        { id:"x2c", audio:"Il libro è lì sul tavolo.", q:"Write exactly what you heard — every word:" },
+      ] },
+
+    { tag:"3 · forma", title:"Tre",
+      explain:'Nel 4a hai scritto <span class="heard">ha riuscito</span>. Il participio era giusto — l’ausiliare no. <span lang="it">Riuscire</span> vuole <b>essere</b>: <span lang="it"><b>sono</b> riuscito</span>. La famiglia dell’<i>essere</i> è quella del movimento e del cambiamento — <span lang="it">andare · venire · arrivare · tornare · riuscire · diventare</span>. E quando l’ausiliare è <i>essere</i>, il participio <b>concorda</b>.',
+      items:[
+        { id:"x3a", blank:true, prompt:'<span lang="it">Non ___ riuscito ad aprire la porta.</span>' },
+        { id:"x3b", blank:true, prompt:'<span lang="it">Mia moglie non ___ riuscit___ a dormire.</span> <span class="why">(two gaps: the auxiliary, then the participle ending)</span>' },
+        { id:"x3c", blank:true, prompt:'<span lang="it">La pioggia ___ rovinato la festa.</span> <span class="why">(careful — this verb is not in that family)</span>' },
+      ] },
+
+    { tag:"4 · forma", title:"Quattro",
+      explain:'Nel 7 ti ho chiesto il <b>presente</b> e l’<b>imperfetto</b>, e mi hai dato <span class="heard">è andato</span> e <span class="heard">eravamo andati</span> — due passati composti. La buona notizia: la metà che sbagliavi da luglio ora è solida — hai preso <span lang="it">andare</span>, non <span lang="it">avere</span>. Quello che manca è che <span lang="it">andare d’accordo</span> vive anche nei tempi <b>semplici</b>: <span lang="it">vado · va · andiamo</span> (adesso), <span lang="it">andavo · andava · andavamo</span> (una volta).',
+      items:[
+        { id:"x4a", blank:true, prompt:'<span lang="it">Mio padre ___ d’accordo con tutti.</span> <span class="why">(how he is, in general, right now)</span>' },
+        { id:"x4b", blank:true, prompt:'<span lang="it">Da bambini, io e mio fratello non ___ d’accordo.</span> <span class="why">(how things used to be)</span>' },
+        { id:"x4c", prompt:'<span lang="it">«Ieri i bambini sono andati d’accordo.»</span> — what does this sentence tell you?',
+          opts:["about one particular occasion, yesterday","about how they generally are","about how they used to be, years ago"], a:"about one particular occasion, yesterday" },
+      ] },
+  ],
+};
+/* ==================================================================================== */
+
+// v0.17: tier-2 save endpoint (the tools/drive-save-endpoint.gs web-app URL) so
+// ⬇ Save for tutor also works from the published iPhone copy, away from the Mac.
+// Set ONCE by the tutor; '' = tier skipped. Copies inherit it — not a CONFIG field.
+const TUTOR_SAVE_URL = 'https://script.google.com/macros/s/AKfycby88gFnMprMuBLTwUdZmPSdSM7o-BweDZvtf95_YaB6fvderXbhh0uLXKSbagsbNDHbXw/exec';
+
+const $ = id => document.getElementById(id);
+const KEY = CONFIG.storageKey;
+const CARDS = CONFIG.cards || [];
+function allItems(){ return CARDS.flatMap(c=>c.items); }
+
+/* eyebrow derives from the SAME card.tag string — no CONFIG edit needed */
+function eyebrowText(tag){ return (tag||'').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/\s*·\s*$/,'').trim(); }
+function isListen(tag){ return /ear|ascolt|listen|👂/i.test(tag||''); }
+
+/* ---- TTS engine (Web Speech, it-IT) ---- */
+let itVoice=null;
+function loadVoices(){ const vs=window.speechSynthesis?speechSynthesis.getVoices():[]; itVoice=vs.find(v=>/^it/i.test(v.lang))||null; }
+if(window.speechSynthesis){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function speak(text,rate){ if(!window.speechSynthesis) return false; speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang='it-IT'; u.rate=rate; if(itVoice)u.voice=itVoice; speechSynthesis.speak(u); return true; }
+
+const IT_ATTRS = 'lang="it" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"';
+
+function render(){
+  $('h-title').textContent = CONFIG.title || 'Sheet';
+  $('sb-title').textContent = CONFIG.title || 'Sheet';
+  $('h-sub').textContent = CONFIG.subtitle || '';
+  if(CONFIG.map && CONFIG.map.length){
+    let m='<div class="card"><div class="eyebrow"><span class="dot"></span>Today’s map</div><h2>Where this is headed</h2>';
+    CONFIG.map.forEach(r=> m+='<div class="maprow anim"><span class="ic">'+(r.ic||'•')+'</span><span><b>'+r.area+'</b> — '+(r.what||'')+(r.why?' <span class="why">· '+r.why+'</span>':'')+'</span></div>');
+    m+='</div>'; $('map').innerHTML=m;
+  }
+  const root=$('cards');
+  CARDS.forEach((card,ci)=>{
+    const el=document.createElement('div'); el.className='card'; el.id='card-'+ci;
+    if(CONFIG.progressive && ci>0) el.classList.add('locked');
+    let h='<div class="head" data-toggle="'+ci+'"><div class="headtext">';
+    h+='<div class="eyebrow"><span class="dot'+(isListen(card.tag)?' listen':'')+'"></span>'+eyebrowText(card.tag)+'</div>';
+    h+='<h2>'+(card.title||'')+'</h2>';
+    h+='<div class="lockmsg">Locked until §'+ci+' is copied.</div>';
+    h+='<div class="foldmsg">Folded — tap to open again.</div>';
+    h+='</div><button type="button" class="tgl" data-toggle="'+ci+'" role="switch" aria-checked="true" aria-label="Show or fold this section"><span class="knob"></span></button></div>';
+    h+='<div class="body">';
+    if(card.explain) h+='<div class="explain anim">'+card.explain+'</div>';
+    card.items.forEach((it,i)=>{
+      const lbl=(ci+1)+String.fromCharCode(97+i);
+      h+='<div class="q"><div class="num">'+lbl+(it.who?' · '+it.who:'')+'</div>';
+      if(it.audio){
+        h+='<div class="players">'
+          +'<button type="button" class="play primary" data-play="'+it.id+'" data-rate="0.6">▶ Lento</button>'
+          +'<button type="button" class="play" data-play="'+it.id+'" data-rate="1.0">▶ Normale</button>'
+          +'<button type="button" class="reveal" data-reveal="'+it.id+'">show text</button></div>';
+        h+='<div class="transcript" id="t-'+it.id+'">«'+it.audio+'»</div>';
+      }
+      // blank:true → the inputs are placed INSIDE the sentence, one per literal ___
+      // parts:[…]  → the prompt, then one labelled box per sub-question
+      let p = it.prompt||it.q||'';
+      const ids = fieldIds(it), shape = itemShape(it);
+      if(it.blank && shape.kind!=='blank') console.warn('[sheet] '+it.id+': blank:true but no ___ in prompt/q — rendering as '+shape.kind);
+      if(shape.kind==='blank' && (it.parts||it.opts)) console.warn('[sheet] '+it.id+': blank wins — parts/opts ignored');
+      if(shape.kind==='parts' && it.opts) console.warn('[sheet] '+it.id+': parts wins — opts ignored');
+      if(shape.kind==='blank'){
+        let k=0;
+        p = p.replace(/___/g, ()=> '<input class="blank it-field" id="'+ids[k++]+'" '+IT_ATTRS+' enterkeyhint="next">');
+        h+='<div class="prompt">'+p+'</div>';
+      } else if(shape.kind==='parts'){
+        if(p) h+='<div class="prompt">'+p+'</div>';
+        it.parts.forEach((lab,k)=>{
+          h+='<div class="sub"><div class="sublab">'+lab+'</div>'
+            +'<textarea class="growbox it-field" rows="1" id="'+ids[k]+'" '+IT_ATTRS
+            +' enterkeyhint="'+(k===it.parts.length-1?'done':'next')+'" placeholder="'
+            +(it.audio?'la tua risposta…':'your answer…')+'"></textarea></div>';
+        });
+      } else {
+        h+='<div class="prompt">'+p+'</div>';
+        if(shape.kind==='opts'){ h+='<div class="opts">'; it.opts.forEach(o=>{ const v=o.replace(/"/g,'&quot;'); h+='<label><input type="radio" name="'+it.id+'" value="'+v+'"> <span>'+o+'</span></label>'; }); h+='</div>'; }
+        else h+='<textarea class="growbox it-field" rows="1" id="'+it.id+'" '+IT_ATTRS+' enterkeyhint="done" placeholder="'+(it.audio?'la tua risposta…':'your answer…')+'"></textarea>';
+      }
+      h+='</div>';
+    });
+    if(CONFIG.progressive){
+      const last = ci===CARDS.length-1;
+      h+='<button class="contbtn" data-cont="'+ci+'">Copy this section'+(last?'':' → continue')+'</button><span class="cardmsg" id="cm-'+ci+'"></span>';
+    }
+    h+='</div>';
+    el.innerHTML=h; root.appendChild(el);
+  });
+  document.querySelectorAll('input,textarea').forEach(el=> el.addEventListener('input', ()=>{
+    if(el.classList.contains('growbox')) autoGrow(el);
+    save(); updateProg(); }));
+  document.querySelectorAll('input[type=radio]').forEach(el=> el.addEventListener('change', ()=>{ save(); updateProg(); }));
+  if(!CONFIG.remark) $('remarkcard').style.display='none';
+}
+
+/* ---- scroll reveal: explanations surface as the eye reaches them ----
+   Progressive enhancement: the `js-anim` flag is only set when IntersectionObserver
+   exists, so any failure path leaves the content plainly visible. */
+let io=null;
+function initReveal(){
+  if(!('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('js-anim');
+  io=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:0.08, rootMargin:'0px 0px -8% 0px'});
+  observeAnim(document);
+}
+function observeAnim(root){
+  if(!io) return;
+  root.querySelectorAll('.anim:not(.in)').forEach(el=> io.observe(el));
+}
+
+/* ---- fold / unfold an already-opened card ---- */
+function setFolded(ci, folded){
+  const el=$('card-'+ci); if(!el || el.classList.contains('locked')) return;
+  el.classList.toggle('collapsed', folded);
+  const sw=el.querySelector('.tgl'); if(sw) sw.setAttribute('aria-checked', String(!folded));
+}
+document.addEventListener('click', function(e){
+  const tg=e.target.closest('[data-toggle]');
+  if(tg){
+    const ci=+tg.getAttribute('data-toggle');
+    const el=$('card-'+ci);
+    if(el && !el.classList.contains('locked')) setFolded(ci, !el.classList.contains('collapsed'));
+    return;
+  }
+  const pb=e.target.closest('[data-play]');
+  if(pb){ const it=allItems().find(x=>x.id===pb.getAttribute('data-play'));
+    if(!speak(it.audio,parseFloat(pb.getAttribute('data-rate')))){ const t=$('t-'+it.id); if(t)t.style.display='block'; } return; }
+  const rv=e.target.closest('[data-reveal]');
+  if(rv){ const t=$('t-'+rv.getAttribute('data-reveal')); if(t) t.style.display=(t.style.display==='block'?'none':'block'); return; }
+  const cont=e.target.closest('[data-cont]');
+  if(cont){ const ci=+cont.getAttribute('data-cont'); copyCard(ci); cont.classList.add('done');
+    const next=$('card-'+(ci+1)); if(next){ next.classList.remove('locked');
+      observeAnim(next);   // its explain had no box while locked — start watching it now
+      next.scrollIntoView({behavior:'smooth',block:'start'}); } return; }
+});
+
+function autoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight)+'px'; }
+
+/* ---- v0.26: an item may own MORE THAN ONE input ----------------------------
+   Two ways in, one mechanism:
+     · blank:true  → EVERY literal ___ in the prompt becomes its own inline field
+                     (was: only the first, so a two-gap sentence needed one big
+                      box underneath and both answers arrived in one string)
+     · parts:[…]   → one labelled box per sub-question, for an item that asks
+                     two things ("write what you heard" + "now split it")
+   A single-field item keeps the bare it.id, so every sheet written before this
+   and every answer already saved in localStorage still loads unchanged. Two or
+   more get it.id+'_1', '_2', … and cardText() numbers or labels them, which is
+   what keeps the old "one blank per item, ever" rule from being needed: the
+   hand-off can no longer collapse two gaps into one ambiguous "→ answer". */
+/* itemShape() is the SINGLE decision about what an item renders. render(),
+   fieldIds(), getField() and cardText() must all derive from it and never
+   re-decide for themselves — an adversarial review (2026-07-25) found three
+   silent data-loss bugs, every one of them caused by these four disagreeing:
+     · parts+opts → render drew textareas, getField read radios ⇒ every answer
+       read back as blank while the UI looked fine
+     · blank:true with the ___ in `q` instead of `prompt` → gaps counted from
+       `prompt` only ⇒ the 2nd field got id="undefined" and was never saved
+     · blank+parts → gap count said 3, render drew 1 ⇒ hand-off invented two
+       "(blank)" answers for questions never shown, feeding fake ✗ to the deck
+   Precedence is now explicit and one-way: blank ▸ parts ▸ opts ▸ plain text.
+   Combining blank with parts or opts is an authoring error — the extra key is
+   ignored, loudly (see the console.warn in render). */
+function itemShape(it){
+  const p = String(it.prompt || it.q || '');          // SAME string render uses
+  const gaps = it.blank ? (p.match(/___/g)||[]).length : 0;
+  if(gaps >= 1)                  return { kind:'blank', n:gaps };
+  if(it.parts && it.parts.length) return { kind:'parts', n:it.parts.length };
+  if(it.opts)                     return { kind:'opts',  n:1 };
+  return { kind:'text', n:1 };
+}
+function fieldIds(it){ const n=itemShape(it).n;
+  return n<=1 ? [it.id] : Array.from({length:n},(_,k)=> it.id+'_'+(k+1)); }
+function allFields(){ const out=[]; allItems().forEach(it=> fieldIds(it).forEach(id=> out.push({it:it,id:id}))); return out; }
+
+function getField(it,id){
+  if(itemShape(it).kind==='opts'){ const el=document.querySelector('input[name="'+id+'"]:checked'); return el?el.value:''; }
+  const el=$(id); return el?el.value.trim():''; }
+function getAns(it){ return fieldIds(it).map(id=>getField(it,id)).filter(Boolean).join(' · '); }
+/* "answered" for the progressive gate = EVERY field filled. getAns() is truthy
+   on ANY one field, which would let a half-finished two-gap item unlock the
+   next card on reload. */
+function isAnswered(it){ return fieldIds(it).every(id=> !!getField(it,id)); }
+function updateProg(){ const f=allFields(), d=f.filter(x=>getField(x.it,x.id)).length;
+  $('prog').textContent=d+' / '+f.length+' answered'; }
+/* localStorage throws in a sandboxed/opaque-origin frame (and in Safari private mode).
+   Unguarded, that would throw on every keystroke and break typing outright. */
+function lsSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+/* saved per FIELD id, not per item — so a two-gap sentence restores both gaps */
+function save(){ const data={remark:($('remark')||{}).value||''};
+  allFields().forEach(f=> data[f.id]=getField(f.it,f.id));
+  const ok=lsSet(KEY, JSON.stringify(data)); const s=$('saved'); s.textContent= ok?' · saved':'';
+  clearTimeout(window._st); window._st=setTimeout(()=> s.textContent='',1400); }
+function load(){ const raw=lsGet(KEY); if(!raw) return; let d; try{ d=JSON.parse(raw); }catch(e){ return; }
+  allFields().forEach(f=>{
+    let v = d[f.id];
+    // Migration: an item edited in place from one gap to several used to lose its
+    // saved answer outright — the blob still held the bare it.id, nothing read it,
+    // and the next keystroke re-saved over it. Fall the FIRST field back to the
+    // bare key so the learner's text survives a mid-sheet edit + reload.
+    if(v==null && f.id===f.it.id+'_1' && d[f.it.id]!=null) v = d[f.it.id];
+    if(v==null) return;
+    if(itemShape(f.it).kind==='opts'){ document.querySelectorAll('input[name="'+f.id+'"]').forEach(r=>{ if(r.value===v) r.checked=true; }); }
+    else { const el=$(f.id); if(el) el.value=v; } });
+  if(d.remark!=null){ const r=$('remark'); if(r) r.value=d.remark; } }
+function stripHtml(h){ const t=document.createElement('div'); t.innerHTML=h; return t.textContent.replace(/\s+/g,' ').trim(); }
+
+/* UNCHANGED CONTRACT: prompt text comes from the CONFIG string (which still holds the literal ___),
+   never from the live DOM — so the inline input never serialises into the tutor's hand-off. */
+function cardText(ci){
+  const card=CARDS[ci]; let s='['+(card.tag||('Card '+(ci+1)))+'] '+(card.title||'')+'\n';
+  card.items.forEach((it,i)=>{ const lbl=(ci+1)+String.fromCharCode(97+i);
+    if(it.audio) s+='  '+lbl+'. (heard: «'+it.audio+'»)'+(it.q?' Q: '+stripHtml(it.q):'')+'\n';
+    else s+='  '+lbl+'. '+stripHtml(it.prompt||it.q||'')+'\n';
+    const ids=fieldIds(it), ans=id=> getField(it,id)||'(blank)';
+    // one field → unchanged. Several → NUMBERED (gaps) or LABELLED (parts), never
+    // run together, so the tutor can always tell which answer belongs to which gap.
+    if(ids.length===1)   s+='      → '+ans(ids[0])+'\n';
+    else if(it.parts)    it.parts.forEach((lab,k)=> s+='      → '+stripHtml(lab)+'  '+ans(ids[k])+'\n');
+    else                 s+='      → '+ids.map((id,k)=> '['+(k+1)+'] '+ans(id)).join('   ')+'\n';
+  });
+  return s;
+}
+function legacyCopy(text){ const ta=document.createElement('textarea');
+  ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta);
+  ta.focus(); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
+  document.body.removeChild(ta); return ok; }
+function clip(text,msg,el){
+  const fail=()=>{ if(legacyCopy(text)){ if(el) el.textContent=msg; }
+    else { if(el) el.textContent='(clipboard blocked — open “Backup text” below and copy it)'; $('backupwrap').open=true; } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>{ if(el) el.textContent=msg; }, fail); }
+  else fail();
+}
+function copyCard(ci){ let s=(CONFIG.pasteHeading||'My answers:')+'\n\n'+cardText(ci);
+  const note=(($('remark')||{}).value||'').trim();
+  if(note || ci===CARDS.length-1) s+='\n[📝 Note to tutor]\n  '+(note||'(none)')+'\n';
+  $('out').textContent=s;
+  clip(s,'copied — paste this section to me',$('cm-'+ci)); }
+function buildHandoff(){ let s=(CONFIG.pasteHeading||'My answers:')+'\n'; CARDS.forEach((c,ci)=> s+='\n'+cardText(ci));
+  s+='\n[📝 Note to tutor]\n  '+(($('remark')||{}).value||'(none)')+'\n'; return s; }
+function copyAll(){ const s=buildHandoff(); $('out').textContent=s;
+  clip(s,'copied — paste it back to me',$('savedmsg')); }
+
+/* ---- ⬇ Save for tutor — two-tier, works at home AND from the published
+   iPhone copy: Drive endpoint (TUTOR_SAVE_URL) → plain download. Same contract as
+   the dictation sheet's saveHandoff. ---- */
+function stamp(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes()); }
+function sheetKind(){ return ((decodeURIComponent(location.pathname).split('/').pop()||'').replace(/\.html?$/,''))||'sheet'; }
+function sessionRelPath(name){   // /lessons/NNN-date/… (local) · /hw/… (compiti) · /lz/… (lezione, v0.24)
+  const m = decodeURIComponent(location.pathname).match(/\/(?:lessons|hw|lz)\/(\d{3}-\d{4}-\d{2}-\d{2})\//);
+  return m ? 'lessons/'+m[1]+'/homework/'+name : null; }
+function saveFile(text,name){ const blob=new Blob([text],{type:'text/markdown;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1500); }
+function barMsg(t,cls){ const m=$('savedmsg'); m.textContent=t;
+  m.classList.remove('ok','warn'); if(cls) m.classList.add(cls); }
+/* saveState: pending → ok/warn, ON THE BUTTON. Never auto-clears: the learner walks away
+   after pressing, and a confirmation that erases itself is the same as no confirmation. */
+function saveBtnState(state){ const b=$('savebtn'); if(!b) return;
+  b.classList.remove('ok','warn');
+  if(state==='pending'){ b.disabled=true;  b.textContent='Saving…'; }
+  if(state==='ok')     { b.disabled=true;  b.textContent='✓ Sent to your tutor'; b.classList.add('ok'); }
+  if(state==='warn')   { b.disabled=false; b.textContent='⚠ Not sent — tap for details'; b.classList.add('warn'); }
+}
+function saveForTutor(){
+  const body=buildHandoff(); $('out').textContent=body;
+  const name=sheetKind()+'_'+stamp()+'.md';
+  const text='<!-- saved '+stamp()+' · sheet '+sheetKind()+' -->\n\n'+body;
+  const rel=sessionRelPath(name);
+  // The download fallback is a FAILURE and used to announce itself with a ✓, in the same tone as
+  // success — on the iPhone the file lands in Files, where no pipeline ever looks, so the work
+  // never arrived while the sheet said it had. Say so plainly, and point at the thing that always
+  // works: copy & paste.
+  const download=()=>{ saveFile(text,name); $('backupwrap').open=true; saveBtnState('warn');
+    barMsg('⚠ This did NOT reach your tutor — not your fault. Open “Backup text” above, copy it, and paste it into the chat; that always works. (A copy was downloaded to this device too.)','warn'); };
+  saveBtnState('pending'); barMsg('Sending…');
+  if(!rel){ download(); return; }
+  if(!TUTOR_SAVE_URL){ download(); return; }
+  // no custom headers → a CORS "simple request" (the standard Apps Script pattern)
+  fetch(TUTOR_SAVE_URL,{method:'POST', body:JSON.stringify({path:rel, content:text})})
+    .then(r=>r.json())
+    .then(j=>{ if(j&&j.ok){ saveBtnState('ok'); barMsg('✓ saved home into '+j.path+' — tell your tutor “done”','ok'); } else { throw new Error('save failed'); } })
+    .catch(download);
+}
+/* Two-step, in-page confirm. confirm() is BLOCKED in sandboxed frames (it returns false),
+   which silently made Clear do nothing — and a modal is the wrong affordance here anyway. */
+let clearArmed=false, clearTimer=null;
+function disarmClear(){ clearArmed=false; clearTimeout(clearTimer);
+  const b=$('clearbtn'); if(b){ b.textContent='Clear all answers'; b.classList.remove('armed'); } }
+function clearAll(){
+  const b=$('clearbtn');
+  if(!clearArmed){
+    clearArmed=true;
+    if(b){ b.textContent='Tap again to erase everything'; b.classList.add('armed'); }
+    clearTimer=setTimeout(disarmClear, 5000);
+    return;
+  }
+  disarmClear();
+  lsDel(KEY);
+  allFields().forEach(f=>{
+    if(itemShape(f.it).kind==='opts'){ document.querySelectorAll('input[name="'+f.id+'"]').forEach(r=>r.checked=false); }
+    else { const el=$(f.id); if(el){ el.value=''; if(el.classList.contains('growbox')) autoGrow(el); } }
+  });
+  const r=$('remark'); if(r) r.value='';
+  $('out').textContent=''; $('backupwrap').open=false; $('savedmsg').textContent='';
+  // answers are gone, so the progressive gate must go back to the start too
+  CARDS.forEach((c,ci)=>{
+    const el=$('card-'+ci); if(!el) return;
+    el.classList.remove('collapsed');
+    if(CONFIG.progressive && ci>0) el.classList.add('locked');
+    const sw=el.querySelector('.tgl'); if(sw) sw.setAttribute('aria-checked','true');
+  });
+  document.querySelectorAll('[data-cont]').forEach(btn=> btn.classList.remove('done'));
+  document.querySelectorAll('.cardmsg').forEach(m=> m.textContent='');
+  updateProg();
+  $('card-0').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// v0.18.2: progressive unlock was CSS-class-only, decided purely at render time — a page reload
+// (e.g. to pick up a fix, or just an accidental refresh) re-locked every card even though the
+// learner's answers were still in localStorage. Re-derive the unlock state from saved answers.
+function unlockProgress(){
+  if(!CONFIG.progressive) return;
+  for(let ci=1; ci<CARDS.length; ci++){
+    const prevDone = CARDS[ci-1].items.every(isAnswered);
+    if(!prevDone) break;
+    const el=$('card-'+ci); if(el) el.classList.remove('locked');
+    const btn=document.querySelector('[data-cont="'+(ci-1)+'"]'); if(btn) btn.classList.add('done');
+  }
+}
+addEventListener('scroll', ()=> $('statusbar').classList.toggle('scrolled', scrollY>4), {passive:true});
+
+render(); load(); unlockProgress();
+document.querySelectorAll('.growbox').forEach(autoGrow); updateProg();
+initReveal();
+</script>
+<script>
+/* v0.28 - back + reload in the sticky strip (learner request, 2026-08-09).
+   Reload is safe because every keystroke already autosaves to localStorage and
+   load() restores per field id; we still force a save first so an in-flight
+   edit cannot be the one thing lost. Back prefers real history (it keeps the
+   index's scroll position) and falls back to the site root when the sheet was
+   opened cold from a bookmark, where history.back() would leave the site. */
+function sheetBack(){
+  try{
+    var sameOrigin = document.referrer && document.referrer.indexOf(location.origin)===0;
+    if(sameOrigin && history.length>1){ history.back(); return; }
+  }catch(e){}
+  location.href = '../../';
+}
+function sheetReload(){
+  try{ if(typeof save==='function') save(); }catch(e){}
+  location.reload();
+}
+</script>
+<div style="color:#c4bfb2;font-size:11px;text-align:center;padding:8px 0">build 2026-08-22-2001</div></body>
+</html>

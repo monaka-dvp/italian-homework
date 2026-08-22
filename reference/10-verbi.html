@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Verbi — quick reference</title>
+<style>
+  :root{ --bg:#f5f3ee; --card:#ffffff; --ink:#26241f; --muted:#8a8478; --line:#e6e1d6; --accent:#6b6329; --accent-soft:#eee7c9; }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:24px 16px 60px;}
+  .wrap{max-width:820px; margin:0 auto}
+  h1{font-size:22px; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:14px; margin-bottom:20px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:18px; box-shadow:0 1px 2px rgba(0,0,0,.03);}
+  .card h2{font-size:16px; margin:0 0 10px}
+  .rule{font-size:14px; background:#faf8f3; border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:11px 13px; margin:0 0 14px}
+  .rule b{color:var(--ink)}
+  table{width:100%; border-collapse:collapse; font-size:14.5px}
+  th,td{padding:7px 10px; text-align:left; border-bottom:1px solid var(--line)}
+  th{color:var(--muted); font-weight:700; font-size:12.5px; text-transform:uppercase; letter-spacing:.3px}
+  td.stem{font-weight:700; color:var(--accent)}
+  tr.trigger td{background:var(--accent-soft); font-weight:600}
+  .verbtable{overflow-x:auto; -webkit-overflow-scrolling:touch}
+  /* paradigm cells never wrap mid-word — the wrapper scrolls sideways instead (iPhone fix, 2026-07-21) */
+  .verbtable th, .verbtable td{white-space:nowrap}
+  .verbtable table.prose{min-width:560px}
+  .verbtable table.prose th, .verbtable table.prose td{white-space:normal}
+  code{background:#efece4; border-radius:6px; padding:1px 6px; font-size:13px}
+  .persons{font-size:12.5px; color:var(--muted)}
+  .jump{display:flex; flex-wrap:wrap; gap:7px; margin:0 0 20px}
+  .jump a{font-size:12.5px; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:5px 11px; text-decoration:none; font-weight:600}
+  details summary{cursor:pointer; font-size:13.5px; color:var(--accent); font-weight:600; margin:2px 0 12px}
+  details summary::marker{color:var(--accent)}
+  .home{display:inline-block; margin:0 0 18px; font-size:12px; color:#6b6b6b;
+    text-decoration:none}
+  .home:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home" href="../index.html">← Italiano</a>
+  <h1>Verbi — quick reference</h1>
+  <div class="sub">One page, not a worksheet — the whole shape of the system at a glance. Built 2026-07-19 for <b>G-009</b> (avere) + <b>G-017</b> (contracted stems); expanded 2026-07-21 to cover every conjugation pattern taught so far (futuro/condizionale full family, congiuntivo beyond avere, imperfetto hidden-stems, reflexive present). Bookmark it, glance at it before the Anki drills.</div>
+  <div class="jump">
+    <a href="#trigger">Trigger words</a><a href="#family">Contracted family</a><a href="#avere">avere</a>
+    <a href="#dovere">dovere</a><a href="#others">Other 6 verbs</a><a href="#cong-pres">Cong. presente</a>
+    <a href="#cong-imp">Cong. imperfetto</a><a href="#imperfetto">Imperfetto</a><a href="#reflexive">Reflexives</a>
+  </div>
+
+  <div class="card" id="trigger">
+    <h2>The 3-way decision — pick the stem by the TRIGGER WORD</h2>
+    <div class="rule">Same verb, three different shrunk stems depending on what introduces the clause. Read the trigger, not the meaning you're aiming for — the trigger tells you everything.</div>
+    <div class="verbtable"><table class="prose">
+      <tr><th>Trigger word(s)</th><th>Mood/tense</th><th>Ending family</th><th>Example (avere)</th></tr>
+      <tr class="trigger"><td><code>domani, quando, fra un'ora…</code> (or plain future/"would")</td><td>Futuro / Condizionale</td><td>-ò -ai -à -emo -ete -anno<br><span class="persons">(cond: -ei -esti -ebbe -emmo -este -ebbero)</span></td><td class="stem">avr-</td></tr>
+      <tr class="trigger"><td><code>se</code> (a real "if")</td><td>Congiuntivo imperfetto</td><td>-ssi -ssi -sse -ssimo -ste -ssero <span style="opacity:.7">(onto the <b>imperfetto</b> stem — the theme vowel is already in it: parl<b>a</b>-, sap<b>e</b>-, ven<b>i</b>-)</span></td><td class="stem">ave-</td></tr>
+      <tr class="trigger"><td><code>penso/spero/credo/voglio che…</code></td><td>Congiuntivo presente</td><td><b>-are</b> → -i -i -i -iamo -iate -ino · <b>-ere/-ire</b> → -a -a -a -iamo -iate -ano <span style="opacity:.7">(io/tu/lui/lei are all the same form — the trap is the vowel, not the person)</span></td><td class="stem">abbi-<span style="opacity:.7"> + -a -a -a -amo -ate -ano<br>(avere is irregular here)</span></td></tr>
+    </table></div>
+  </div>
+
+  <div class="card" id="family">
+    <h2>The contracted-stem family (G-017) — futuro / condizionale only</h2>
+    <div class="rule">These verbs don't use the full infinitive as their stem — the stem <b>shrinks</b>, then takes the normal short endings (<code>-ò -ai -à -emo -ete -anno</code> / <code>-ei -esti -ebbe …</code>). <b>dovere</b> is today's miss — it follows the exact same pattern as <i>andare</i> and <i>venire</i>, already solid.</div>
+    <div class="verbtable"><table>
+      <tr><th>Infinitive</th><th>Stem</th><th>Futuro (io)</th><th>Condizionale (io)</th></tr>
+      <tr><td>avere</td><td class="stem">avr-</td><td>avrò</td><td>avrei</td></tr>
+      <tr><td>dovere</td><td class="stem">dovr-</td><td>dovrò</td><td>dovrei</td></tr>
+      <tr><td>andare</td><td class="stem">andr-</td><td>andrò</td><td>andrei</td></tr>
+      <tr><td>venire</td><td class="stem">verr-</td><td>verrò</td><td>verrei</td></tr>
+      <tr><td>potere</td><td class="stem">potr-</td><td>potrò</td><td>potrei</td></tr>
+      <tr><td>vedere</td><td class="stem">vedr-</td><td>vedrò</td><td>vedrei</td></tr>
+      <tr><td>sapere</td><td class="stem">sapr-</td><td>saprò</td><td>saprei</td></tr>
+      <tr><td>volere</td><td class="stem">vorr-</td><td>vorrò</td><td>vorrei</td></tr>
+      <tr><td>essere</td><td class="stem">sar-</td><td>sarò</td><td>sarei</td></tr>
+      <tr><td>fare</td><td class="stem">far-</td><td>farò</td><td>farei</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>These are the exceptions.</b> Every <i>regular</i> <b>-are</b> verb builds its condizionale mechanically instead — drop <i>-are</i>, add <b>er</b>, add the ending: <i>compr</i> · <b>er</b> · <i>emmo</i> → <i>compreremmo</i>. That <b>er</b> keeps falling out of the long endings (<i>compremmo</i>, 2026-07-25 and again 2026-07-26), so it now has its own drill: <b>cinque tempi</b> — futuro, imperfetto, condizionale presente, congiuntivo presente, congiuntivo imperfetto — across 40 verbs. Verb, tense and person are all <b>multi-select</b>: take one verb, or a whole spelling family (<i>-care/-gare</i> in one tap), or the lot → <a href="50-coniugazioni.html">coniugazioni</a>.</div>
+  </div>
+
+  <div class="card" id="avere">
+    <h2>avere — full paradigm, all 6 persons, all 3 stems</h2>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th>Futuro <span class="stem">(avr-)</span></th><th>Condizionale <span class="stem">(avr-)</span></th><th>Cong. imperfetto <span class="stem">(avess-)</span></th><th>Cong. presente <span class="stem">(abbi-)</span></th></tr>
+      <tr><td>io</td><td>avrò</td><td>avrei</td><td>avessi</td><td>abbia</td></tr>
+      <tr><td>tu</td><td>avrai</td><td>avresti</td><td>avessi</td><td>abbia</td></tr>
+      <tr><td>lui/lei</td><td>avrà</td><td>avrebbe</td><td>avesse</td><td>abbia</td></tr>
+      <tr><td>noi</td><td>avremo</td><td>avremmo</td><td>avessimo</td><td>abbiamo</td></tr>
+      <tr><td>voi</td><td>avrete</td><td>avreste</td><td>aveste</td><td>abbiate</td></tr>
+      <tr><td>loro</td><td>avranno</td><td>avrebbero</td><td>avessero</td><td>abbiano</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>Real misses on record:</b> <i>noi avremo</i> → wrote <i>avriamo</i> (borrowed the <code>-iamo</code> tail from congiuntivo/present — the future <b>noi</b> ending is <code>-emo</code>, not <code>-iamo</code>). <i>penso che (tu) abbia</i> → wrote <i>avessi</i> (borrowed the <b>se</b>-stem into the <i>penso che</i> slot).</div>
+  </div>
+
+  <div class="card" id="dovere">
+    <h2>dovere — full paradigm, futuro + condizionale</h2>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th>Futuro <span class="stem">(dovr-)</span></th><th>Condizionale <span class="stem">(dovr-)</span></th></tr>
+      <tr><td>io</td><td>dovrò</td><td>dovrei</td></tr>
+      <tr><td>tu</td><td>dovrai</td><td>dovresti</td></tr>
+      <tr><td>lui/lei</td><td>dovrà</td><td>dovrebbe</td></tr>
+      <tr><td>noi</td><td>dovremo</td><td>dovremmo</td></tr>
+      <tr><td>voi</td><td>dovrete</td><td>dovreste</td></tr>
+      <tr><td>loro</td><td>dovranno</td><td>dovrebbero</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>Real misses on record:</b> <i>domani dovrai</i> → wrote <i>devi</i> (present tense — "domani" is the future cue, easy to miss under speed). <i>domani (noi) dovremo</i> → wrote <i>dovremmo</i> (borrowed the condizionale <code>-emmo</code> tail — a plain future fact needs <code>-emo</code>, single m). First clean cold hit on <i>dovremo</i>: 2026-07-21.</div>
+  </div>
+
+  <div class="card" id="others">
+    <h2>andare · venire · essere · fare · potere · volere — full paradigms</h2>
+    <div class="rule">Same machinery as avere/dovere above: a shrunk stem + the normal futuro/condizionale endings. Learn the endings once (they never change), then it's just swapping the stem. The stem + io-form for each is already in the family table above — open below only when you need a person other than io.</div>
+    <details><summary>show full 6-person paradigms (andare, venire, essere, fare, potere, volere)</summary>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th colspan="2">andare <span class="stem">(andr-)</span></th><th colspan="2">venire <span class="stem">(verr-)</span></th></tr>
+      <tr><th></th><th>Futuro</th><th>Condiz.</th><th>Futuro</th><th>Condiz.</th></tr>
+      <tr><td>io</td><td>andrò</td><td>andrei</td><td>verrò</td><td>verrei</td></tr>
+      <tr><td>tu</td><td>andrai</td><td>andresti</td><td>verrai</td><td>verresti</td></tr>
+      <tr><td>lui/lei</td><td>andrà</td><td>andrebbe</td><td>verrà</td><td>verrebbe</td></tr>
+      <tr><td>noi</td><td>andremo</td><td>andremmo</td><td>verremo</td><td>verremmo</td></tr>
+      <tr><td>voi</td><td>andrete</td><td>andreste</td><td>verrete</td><td>verreste</td></tr>
+      <tr><td>loro</td><td>andranno</td><td>andrebbero</td><td>verranno</td><td>verrebbero</td></tr>
+    </table></div>
+    <div class="verbtable" style="margin-top:14px"><table>
+      <tr><th>Person</th><th colspan="2">essere <span class="stem">(sar-)</span></th><th colspan="2">fare <span class="stem">(far-)</span></th></tr>
+      <tr><th></th><th>Futuro</th><th>Condiz.</th><th>Futuro</th><th>Condiz.</th></tr>
+      <tr><td>io</td><td>sarò</td><td>sarei</td><td>farò</td><td>farei</td></tr>
+      <tr><td>tu</td><td>sarai</td><td>saresti</td><td>farai</td><td>faresti</td></tr>
+      <tr><td>lui/lei</td><td>sarà</td><td>sarebbe</td><td>farà</td><td>farebbe</td></tr>
+      <tr><td>noi</td><td>saremo</td><td>saremmo</td><td>faremo</td><td>faremmo</td></tr>
+      <tr><td>voi</td><td>sarete</td><td>sareste</td><td>farete</td><td>fareste</td></tr>
+      <tr><td>loro</td><td>saranno</td><td>sarebbero</td><td>faranno</td><td>farebbero</td></tr>
+    </table></div>
+    <div class="verbtable" style="margin-top:14px"><table>
+      <tr><th>Person</th><th colspan="2">potere <span class="stem">(potr-)</span></th><th colspan="2">volere <span class="stem">(vorr-)</span></th></tr>
+      <tr><th></th><th>Futuro</th><th>Condiz.</th><th>Futuro</th><th>Condiz.</th></tr>
+      <tr><td>io</td><td>potrò</td><td>potrei</td><td>vorrò</td><td>vorrei</td></tr>
+      <tr><td>tu</td><td>potrai</td><td>potresti</td><td>vorrai</td><td>vorresti</td></tr>
+      <tr><td>lui/lei</td><td>potrà</td><td>potrebbe</td><td>vorrà</td><td>vorrebbe</td></tr>
+      <tr><td>noi</td><td>potremo</td><td>potremmo</td><td>vorremo</td><td>vorremmo</td></tr>
+      <tr><td>voi</td><td>potrete</td><td>potreste</td><td>vorrete</td><td>vorreste</td></tr>
+      <tr><td>loro</td><td>potranno</td><td>potrebbero</td><td>vorranno</td><td>vorrebbero</td></tr>
+    </table></div>
+    </details>
+    <div class="rule" style="margin:14px 0 0"><b>How much of this is actually new to you — check the drill, not this line.</b> This card used to say all six verbs were fresh with "no real mistakes on record". That was wrong for four of them, and wrong in the direction that matters: <i>andare</i> is where <b>vaderei</b> → <b>andrerei</b> came from, <i>fare</i> gave <b>farerei</b>, <i>venire</i>'s <b>verrei</b> went to a <i>noi</i> subject, and <i>essere</i>'s <b>sia</b> (io/tu/lui) has never once come out right. Only <i>potere</i> and <i>volere</i> are genuinely untouched. Per-cell evidence lives in <a href="50-coniugazioni.html">coniugazioni</a> — <b>●</b> drilled · <b>○</b> pattern · unmarked = not yet — and it updates itself, which a sentence here does not.</div>
+  </div>
+
+  <div class="card" id="cong-pres">
+    <h2>Congiuntivo presente — beyond avere</h2>
+    <div class="rule">Triggered by <code>penso/credo/spero/sono contento che…</code> ([[G-002]]) — the mistake that keeps recurring is memorizing ONE conjugated answer (e.g. <i>siano</i>) and reusing it regardless of person or verb. The trigger is what matters; the ending still has to match the actual subject.</div>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th>essere <span class="stem">(si-)</span></th><th>stare <span class="stem">(sti-)</span></th><th>venire <span class="stem">(veng-/ven-)</span></th></tr>
+      <tr><td>io</td><td>sia</td><td>stia</td><td>venga</td></tr>
+      <tr><td>tu</td><td>sia</td><td>stia</td><td>venga</td></tr>
+      <tr><td>lui/lei</td><td>sia</td><td>stia</td><td>venga</td></tr>
+      <tr><td>noi</td><td>siamo</td><td>stiamo</td><td>veniamo</td></tr>
+      <tr><td>voi</td><td>siate</td><td>stiate</td><td>veniate</td></tr>
+      <tr><td>loro</td><td>siano</td><td>stiano</td><td>vengano</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>Regular verbs — the ending pattern</b> (nothing to memorize, it's mechanical): <b>-are</b> verbs swap their <i>a</i> for an <b>i</b> → <code>-i -i -i -iamo -iate -ino</code>. <b>-ere / -ire</b> verbs do the mirror image, taking an <b>a</b> → <code>-a -a -a -iamo -iate -ano</code>. Note the two middle rows (<i>noi</i>, <i>voi</i>) are <code>-iamo / -iate</code> for <b>every</b> verb in the language — learn those once and they're done.</div>
+    <div class="verbtable" style="margin-top:14px"><table>
+      <tr><th>Person</th><th>parlare <span class="stem">(-are)</span></th><th>giocare <span class="stem">(-care → h)</span></th><th>pagare <span class="stem">(-gare → h)</span></th><th>leggere <span class="stem">(-ere)</span></th><th>aprire <span class="stem">(-ire)</span></th></tr>
+      <tr><td>io</td><td>parli</td><td>giochi</td><td>paghi</td><td>legga</td><td>apra</td></tr>
+      <tr><td>tu</td><td>parli</td><td>giochi</td><td>paghi</td><td>legga</td><td>apra</td></tr>
+      <tr><td>lui/lei</td><td><b>parli</b></td><td><b>giochi</b></td><td><b>paghi</b></td><td>legga</td><td>apra</td></tr>
+      <tr><td>noi</td><td>parliamo</td><td>giochiamo</td><td>paghiamo</td><td>leggiamo</td><td>apriamo</td></tr>
+      <tr><td>voi</td><td>parliate</td><td>giochiate</td><td>paghiate</td><td>leggiate</td><td>apriate</td></tr>
+      <tr><td>loro</td><td>parlino</td><td>giochino</td><td>paghino</td><td>leggano</td><td>aprano</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>The trap that makes the right answer feel wrong</b> (learner's own remark, 2026-07-25: <i>"conjugation of -are verb, I don't know this"</i>): for <b>-are</b> verbs the <b>lui/lei</b> congiuntivo is <b>parli</b> — spelled exactly like the ordinary <i>tu</i> indicative "you speak." So writing <i>Spero che la maestra <b>parli</b></i> looks like a person error, and the ear reaches for <i>parla</i> instead. It isn't an error: after a trigger, <b>the top three rows are all the same form</b>. If it feels wrong, that's the sign you've got it right.</div>
+    <div class="rule" style="margin:14px 0 0"><b>-care / -gare keep the hard sound with an h</b> — <i>giocare → gioch<b>ino</b></i>, <i>pagare → pagh<b>i</b></i>. Same <i>h</i>, same reason, as the conditional <i>giocherei / pagherei</i> in the cards above: <code>c</code> and <code>g</code> are hard before <b>a o u</b>, soft before <b>e i</b> — and every congiuntivo ending here starts with <b>i</b>.</div>
+    <div class="rule" style="margin:14px 0 0"><b>Real misses on record.</b> <i>spero che tu ___ (trovare)</i> → wrote <b>trovate</b> (indicative) instead of <b>troviate</b> — one letter, -a- vs -i- (2026-07-21; <b>fixed cold on 2026-07-25</b>, along with <i>voi venire → veniate</i>). <i>Spero che la maestra ___ (parlare)</i> → wrote <b>parla</b> instead of <b>parli</b> (2026-07-25) — the lui/lei trap above.</div>
+    <div class="rule" style="margin:14px 0 0"><b>The one that was open — and what the three tries revealed.</b> The <b>lui/lei -are</b> slot missed three times, and the interesting part is that it missed <i>differently</i> each time: <i>parla</i> (2026-07-25) → <i>Trovia</i> (2026-07-25 homework) → <i>aspette</i> (2026-07-26, <i>«Penso che la maestra ___ (aspettare) i genitori fuori»</i>). <b>Three tries, three different wrong vowels.</b> That is not someone who forgot the rule — he knows the ending has to change, and cannot retrieve <i>which</i>. A six-person table answers a question he wasn't asking, which is why the 2026-07-25 table scored 100% the same day and was gone in 48 hours. So the treatment changed on 2026-07-26 to <b>one hook</b>, not a table: <b><i>io / tu / lui / lei are all the same form, and for -are that form ends in -i.</i></b> Say the hook, then pick the vowel. Scored 4/4 the same session — but <i>primed</i>, so the cold retest was the only one that would count.</div>
+    <div class="rule" style="margin:14px 0 0"><b>And it counted — 2026-07-27, cold. ✓</b> <i>«Spero che tuo fratello ___ (tornare)»</i> → <b>torni</b>, hint-free by design: nothing taught earlier that day, nothing in the explain box. <i>costi</i> ✓ and <i>apra</i> ✓ alongside it. G-002 advanced for the first time since 2026-06-29 — the retest this slot had owed since 07-21. The one hook held where the six-person table had not. Nothing here is "still open"; the row is on a normal review interval now, so the next thing to watch for is a relapse, not a first pass.</div>
+  </div>
+
+  <div class="card" id="cong-imp">
+    <h2>Congiuntivo imperfetto — no longer just avere</h2>
+    <div class="rule">Triggered by a real <code>se</code> ("if"): <i>Se <b>avessi</b> tempo, verrei.</i> Full avere paradigm is in the first card above (<code>avess-</code> stem). Graded beyond it: <i><b>potessi</b></i>, <i><b>sapessi</b></i> and <i><b>venissimo</b></i> (cold, 2026-07-28). <i>essere</i>'s <i>foss-</i> is <b>banked but not yet taught</b> (G-022) — meet it in the drill as a 📖 <i>studio</i> step, don't reach for it cold.</div>
+    <div class="rule" style="margin:14px 0 0"><b>If you know the imperfetto, this tense is free.</b> The stem is the <b>imperfetto</b> stem — not the infinitive. <i>parla<b>vo</b> → parla<b>ssi</b></i> · <i>face<b>vo</b> → face<b>ssi</b></i> · <i>dice<b>vo</b> → dice<b>ssi</b></i> · <i>beve<b>vo</b> → beve<b>ssi</b></i>. So <i>fare</i>, <i>dire</i> and <i>bere</i> come out right for free — <b>facessi</b>, <b>dicessi</b>, <b>bevessi</b>, never "fassi"/"dissi"/"bessi" <span style="opacity:.7">(in <i>this</i> tense — <i>dissi</i> is a real form, but it is passato remoto, which you have not met)</span>. Only <b>essere · dare · stare</b> keep a paradigm of their own: <i>fossi · dessi · stessi</i>.</div>
+    <div class="rule" style="margin:14px 0 0"><b>Keep the theme vowel — three families, one vowel each.</b> <i>parl<b>assi</b></i> · <i>sap<b>essi</b></i> · <i>ven<b>issi</b></i>. Do <i>not</i> think of it as "cut <i>-re</i>, add <i>-essi</i>" — that shortcut is what produced <i>"venessimo"</i> (G-023). And the short stems stop here: <i>potr-</i>, <i>sapr-</i>, <i>avr-</i>, <i>dovr-</i>, <i>andr-</i>, <i>verr-</i> live in exactly two tenses, futuro and condizionale — so <b>potessi</b>, never "potressi". Bonus: no spelling machinery at all in this tense — every ending starts with a consonant, so <i>gioc<b>assi</b></i> and <i>mangi<b>assi</b></i> need no <i>h</i> and no dropped <i>i</i>, and <i>cap<b>issi</b></i> takes no <i>-isc-</i>.</div>
+    <div class="rule" style="margin:14px 0 0"><b>Which verbs are confirmed, right now:</b> don't trust a list on this page — it went stale once already, still saying "only avere" a day after the class-wide teach. The drill is the live answer: <a href="50-coniugazioni.html">coniugazioni</a> carries congiuntivo imperfetto for every verb and marks each cell's evidence (<b>●</b> drilled · <b>○</b> pattern · unmarked = not yet). An unmarked cell isn't forbidden — its first visit is an ungraded <b>📖 studio</b> step, which is exactly how you're meant to meet a new one.</div>
+  </div>
+
+  <div class="card" id="imperfetto">
+    <h2>Imperfetto — hidden-stem verbs</h2>
+    <div class="rule">A few verbs keep an old, longer stem in the imperfetto instead of the expected infinitive-minus-ending — then take the normal <code>-vo -vi -va -vamo -vate -vano</code> tail. <b>essere</b> is separately, fully irregular (no <code>-vo</code> tail at all).</div>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th>fare <span class="stem">(fac-)</span></th><th>dire <span class="stem">(dic-)</span></th><th>bere <span class="stem">(bev-)</span></th><th>essere (irregular)</th></tr>
+      <tr><td>io</td><td>facevo</td><td>dicevo</td><td>bevevo</td><td>ero</td></tr>
+      <tr><td>tu</td><td>facevi</td><td>dicevi</td><td>bevevi</td><td>eri</td></tr>
+      <tr><td>lui/lei</td><td>faceva</td><td>diceva</td><td>beveva</td><td>era</td></tr>
+      <tr><td>noi</td><td>facevamo</td><td>dicevamo</td><td>bevevamo</td><td>eravamo</td></tr>
+      <tr><td>voi</td><td>facevate</td><td>dicevate</td><td>bevevate</td><td>eravate</td></tr>
+      <tr><td>loro</td><td>facevano</td><td>dicevano</td><td>bevevano</td><td>erano</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>Real misses on record:</b> <i>dire</i> → "divo" (dropped the hidden stem); <i>bere</i> → "berevo"/"bevo" (used the infinitive-derived false stem <i>ber-</i>, or the present tense, instead of <b>bev-</b>). Both of those <b>stems</b> are done — <i>facevo</i> ✓ on the 2026-07-28 cold spot-check, and no <i>ber-</i> anywhere.</div>
+    <div class="rule" style="margin:14px 0 0"><b>But that spot-check reset the row (2026-07-28, G-011 🔁), and the miss has moved.</b> It is no longer the stem: <i>bere</i> → <b>bevuta</b> (the participle drawer opened instead of the imperfetto) and <i>dire</i> → <b>diceve</b> (right stem <i>dic-</i>, wrong ending). So the open front is the <b>lui/lei ending</b> — <i>dic<b>eva</b></i>, <i>bev<b>eva</b></i> — and the participle reflex on <i>bere</i>. <i>bere</i> is now assigned to the <a href="50-coniugazioni.html">coniugazioni</a> drill for exactly this.</div>
+  </div>
+
+  <div class="card" id="reflexive">
+    <h2>Reflexive present tense</h2>
+    <div class="rule">The clitic (mi/ti/si/ci/vi/si) sits BEFORE a conjugated verb, or welds onto the back of an infinitive ([[S-006]], <i>devo alzar<b>mi</b></i>). The verb ending itself is completely normal for its class — only the front pronoun is "reflexive."</div>
+    <div class="verbtable"><table>
+      <tr><th>Person</th><th>clitic</th><th>svegliarsi</th><th>vestirsi</th></tr>
+      <tr><td>io</td><td class="stem">mi</td><td>sveglio</td><td>vesto</td></tr>
+      <tr><td>tu</td><td class="stem">ti</td><td>svegli</td><td>vesti</td></tr>
+      <tr><td>lui/lei</td><td class="stem">si</td><td>sveglia</td><td>veste</td></tr>
+      <tr><td>noi</td><td class="stem">ci</td><td>svegliamo</td><td>vestiamo</td></tr>
+      <tr><td>voi</td><td class="stem">vi</td><td>svegliate</td><td>vestite</td></tr>
+      <tr><td>loro</td><td class="stem">si</td><td>svegliano</td><td>vestono</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0">Same pattern for <i>alzarsi, divertirsi, chiamarsi, lavarsi, sbrigarsi, ricordarsi, sedersi, trasferirsi</i> — swap in the verb's normal ending, keep the clitic row above. Real, solid win on record: the <i>io</i>-clitic <b>mi</b> used to slip to "lo/mio sveglio" — now automatic.</div>
+
+    <h2>Where the stress falls — why some infinitives vanish by ear</h2>
+    <div class="rule"><b>This is a listening rule, not a spelling rule</b>, and it is here because of a question asked on 2026-08-13: <i>"I can't catch perdere, perda."</i><br><br>
+    Nearly every infinitive drilled so far leans on the <b>second-to-last</b> syllable — <i>parl<b>a</b>re · dorm<b>i</b>re · rientr<b>a</b>re · ved<b>e</b>re</i>. So the ear learns to wait for a beat near the end. But a large family of <span class="stem">-ere</span> verbs throws the stress <b>two syllables further back</b>, onto the third-from-last, and everything after it comes out unstressed and fast. <b>The tail does not disappear because it is quiet — it disappears because you are listening for a stress that never arrives.</b></div>
+    <div class="verbtable"><table>
+      <tr><th>Verb</th><th>Say it</th><th>Meaning</th><th>NOT</th></tr>
+      <tr><td>perdere</td><td class="stem">PER-deh-reh</td><td>to lose</td><td>per-DEH-reh</td></tr>
+      <tr><td>prendere</td><td class="stem">PREN-deh-reh</td><td>to take</td><td>pren-DEH-reh</td></tr>
+      <tr><td>scendere</td><td class="stem">SHEN-deh-reh</td><td>to go down</td><td>shen-DEH-reh</td></tr>
+      <tr><td>chiudere</td><td class="stem">KYOO-deh-reh</td><td>to close</td><td>kyoo-DEH-reh</td></tr>
+      <tr><td>leggere</td><td class="stem">LEJ-jeh-reh</td><td>to read</td><td>lej-JEH-reh</td></tr>
+      <tr><td>mettere</td><td class="stem">MET-teh-reh</td><td>to put</td><td>met-TEH-reh</td></tr>
+      <tr><td>scrivere</td><td class="stem">SKREE-veh-reh</td><td>to write</td><td>skree-VEH-reh</td></tr>
+      <tr><td>vendere</td><td class="stem">VEN-deh-reh</td><td>to sell</td><td>ven-DEH-reh</td></tr>
+    </table></div>
+    <div class="rule" style="margin:14px 0 0"><b>The one thing to carry into a real conversation: for these verbs, listen to the FRONT.</b> The first syllable is the only part that will reliably survive at speed — <i>PER…</i>, <i>PREN…</i>, <i>SHEN…</i> — and it is already enough to tell them apart.<br><br>
+    Contrast the ones that behave normally, so the family has an edge: <i>ved<b>e</b>re</i> (to see), <i>sap<b>e</b>re</i> (to know), <i>pot<b>e</b>re</i> (to be able), <i>vol<b>e</b>re</i> (to want) — all stressed on the <span class="stem">-e-</span>, all easy to catch. <b>So it is not "all <span class="stem">-ere</span> verbs"</b>; it is a specific set, and it happens to include some of the most common verbs in the language.</div>
+    <div class="rule" style="margin:14px 0 0"><b>Watch out for the past.</b> Several of this family are irregular in the passato prossimo, and the participle is much shorter than you would guess: <i>perdere → <b>ho perso</b></i> · <i>prendere → <b>ho preso</b></i> · <i>scendere → <b>sono sceso/a</b></i> (motion verb, so <i>essere</i>) · <i>chiudere → <b>ho chiuso</b></i> · <i>leggere → <b>ho letto</b></i> · <i>mettere → <b>ho messo</b></i> · <i>scrivere → <b>ho scritto</b></i>.</div>
+  </div>
+</div>
+<div style="color:#c4bfb2;font-size:11px;text-align:center;padding:8px 0">build 2026-08-22-2001</div></body>
+</html>

@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>coniugazioni — drill</title>
+<style>
+  :root{
+    --petrol:#10202B; --petrol-deep:#0B1922; --cream:#F5EEDD; --ocra:#C99A3E;
+    --ocra-ink:#A87A22; --verde:#3F5136; --verde-wash:rgba(124,144,112,.18);
+    --rosso:#8E3623; --rosso-wash:rgba(166,67,45,.12);
+    --ambra:#7A5A18; --ambra-wash:rgba(201,154,62,.16);
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%; color-scheme:dark}
+  /* Centre with `margin:0 auto`, never flex on <body> (see 30-essere.html/40-condizionale.html
+     for why). Safe-area order is top/RIGHT/bottom/LEFT — 30-essere has left/right TRANSPOSED
+     at its own lines 25-26; fixed here on purpose, do not copy that bug back in. */
+  body{
+    margin:0; background:var(--petrol); color:var(--cream);
+    font:16px/1.6 var(--sans);
+    padding:30px max(16px, env(safe-area-inset-right))
+            calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .wrap{width:100%; max-width:440px; margin:0 auto}
+
+  .eyebrow{font-size:11px; letter-spacing:.3em; text-transform:uppercase;
+    color:var(--ocra); margin-bottom:4px}
+  h1{font-family:var(--serif); font-size:36px; font-weight:400; line-height:1;
+    margin:0 0 8px; letter-spacing:.005em}
+  .kicker{font-size:12px; line-height:1.5; color:rgba(245,238,221,.45); margin:0 0 18px}
+  .kicker b{color:var(--ocra); font-weight:600}
+  .home{display:inline-block; margin:0 0 18px; font-size:12px; color:rgba(245,238,221,.45);
+    text-decoration:none}
+  .home:hover{color:var(--ocra)}
+
+  /* ---- sliding tabs (same mechanism as 30-essere.html) ---- */
+  .tabs{position:relative; display:flex; gap:4px; background:var(--petrol-deep);
+    border-radius:12px; padding:4px; margin-bottom:18px}
+  .thumb{position:absolute; top:4px; left:4px; width:calc(50% - 4px);
+    height:calc(100% - 8px); background:var(--cream); border-radius:8px;
+    transition:transform .34s cubic-bezier(.4,.01,.2,1); z-index:0}
+  .thumb.right{transform:translateX(calc(100% + 4px))}
+  .tab{position:relative; z-index:1; flex:1; display:flex; align-items:center;
+    justify-content:center; gap:7px; min-height:44px; padding:10px 0;
+    border:0; border-radius:8px; background:none; cursor:pointer;
+    font:500 14px/1 var(--sans); color:rgba(245,238,221,.6);
+    transition:color .22s ease; -webkit-tap-highlight-color:transparent}
+  .tab[aria-selected="true"]{color:var(--petrol)}
+  .tab:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+
+  /* overflow:clip on BOTH axes, not `overflow:hidden; overflow-x:clip` (learner report,
+     2026-07-26: "when I scroll down a little it goes to the right, and when I scroll back it goes
+     left" on the iPhone). The old pair did NOT do what it looks like it does — pairing `clip` with
+     `overflow-y:hidden` degrades the x axis back to `hidden`, and `hidden` still makes this a live
+     SCROLL CONTAINER: it holds the 200%-wide `.track` (two panes) in a one-pane-wide box, so ANY
+     browser-initiated scroll — focus/caret reveal, accessibility, find-on-page, a URL-bar viewport
+     change — could yank scrollLeft a full pane over, and the manual `scrollLeft = 0` resets snapped
+     it back. That is the sideways wobble. (Which of those triggers fires on his phone was never
+     identified; `clip` removes the whole class, so it did not need to be.) Measured before the fix
+     at desktop width: `scrollLeft = 50` stuck, and scrollIntoView() on the inert pane moved it to
+     440 — and note it was a VERTICAL scroll container too, where the JS had no guard at all.
+     `clip` on both axes means this is not a scroll container on either axis, so scrollLeft/scrollTop
+     are pinned at 0 and nothing can pan it. Deliberately NOT adding touch-action here: `clip` alone
+     is sufficient (measured), while any touch-action other than `auto` risks costing double-tap
+     zoom on the paradigm tables. Keep BOTH axes `clip` — reverting either one to `hidden` re-creates
+     the scroll container and the wobble comes back. Safari/iOS ≥16 supports it; no floats in this
+     file, which is the one WebKit case where `clip` stops clipping. */
+  .viewport{overflow:clip; transition:height .34s cubic-bezier(.4,.01,.2,1)}
+  .track{display:flex; align-items:flex-start; width:200%;
+    transition:transform .34s cubic-bezier(.4,.01,.2,1)}
+  .track.right{transform:translateX(-50%)}
+  .pane{width:50%; flex:none}
+  .pane[inert]{pointer-events:none}
+  .no-anim, .no-anim .thumb, .no-anim .track, .no-anim .viewport{transition:none !important}
+
+  /* ---- the control surface: summary line + three axes ----
+     Design brief (learner, 2026-07-26): tense (4) and person (6) are small closed sets —
+     keep them permanently visible, compact. The verb list (~40) is the only real clutter
+     source, so ONLY it collapses. One always-visible summary line up top means the surface
+     never has to be expanded just to check what's active. */
+  /* #summary is a real <button> now (collapsible selector, v: learner request 2026-07-26) —
+     reset the button chrome, keep the exact visual style it had as a div, add a chevron slot */
+  .summary{display:flex; align-items:center; justify-content:space-between; gap:10px;
+    width:100%; font:inherit; font-size:12.5px; line-height:1.5; color:rgba(245,238,221,.5);
+    background:rgba(245,238,221,.05); border:0; border-left:2px solid var(--ocra);
+    border-radius:0 8px 8px 0; padding:8px 11px; margin-bottom:16px; text-align:left;
+    cursor:pointer; -webkit-tap-highlight-color:transparent}
+  .summary:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+  .summary b{color:var(--ocra); font-weight:600}
+  .summary span{color:var(--cream)}
+  .summary .tag{color:var(--ocra); opacity:.75; font-size:10px; margin-left:3px}
+  .summary .sumtext{flex:1; min-width:0}
+  .summary .chev{flex:none; font-size:11px; color:rgba(245,238,221,.4)}
+
+  .axis{margin-bottom:14px}
+  .axis-label{display:flex; align-items:baseline; justify-content:space-between;
+    font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:rgba(245,238,221,.38); margin-bottom:7px}
+  .axis-label .presets{letter-spacing:0; text-transform:none; font-size:11px}
+  /* visually small (a caption, not a peer chip) but still a real ≥44px tap target —
+     the padding does the work, the text stays compact via line-height */
+  .axis-label .presets button{display:inline-flex; align-items:center; background:none; border:0;
+    padding:0 4px; min-height:44px; line-height:1;
+    color:rgba(245,238,221,.4); font:500 11px var(--sans); cursor:pointer;
+    text-decoration:underline; text-underline-offset:2px; -webkit-tap-highlight-color:transparent}
+  .axis-label .presets button:hover, .axis-label .presets button:focus-visible{color:var(--ocra)}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px}
+  .chip{min-height:44px; padding:7px 13px; border-radius:99px; cursor:pointer;
+    border:1px solid rgba(245,238,221,.18); background:none; color:rgba(245,238,221,.72);
+    font:500 13.5px/1.2 var(--sans); -webkit-tap-highlight-color:transparent}
+  .chip[aria-pressed="true"]{background:var(--ocra); border-color:var(--ocra);
+    color:var(--petrol); font-weight:700}
+  .chip:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+  .chip.ghost{border-style:dashed; color:rgba(245,238,221,.45)}
+  .chip .tag{font-size:9.5px; opacity:.6; margin-left:4px}
+  .chip[aria-pressed="true"] .tag{opacity:.8}
+  /* non-interactive overflow indicator for renderVerbBar()'s 3-chip cap — deliberately NOT a
+     .chip (no pointer cursor, no press state): it's a count, not a control */
+  .chip-more{display:inline-flex; align-items:center; min-height:44px; padding:7px 13px;
+    border-radius:99px; border:1px dashed rgba(245,238,221,.12);
+    color:rgba(245,238,221,.35); font:500 12.5px/1.2 var(--sans)}
+
+  /* persons: fixed 3-col grid — always exactly two rows of three, reads as one shape */
+  .pgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+  .pgrid .chip{padding:9px 4px; text-align:center; min-height:44px}
+
+  .vpanel{margin-top:8px; padding:12px 12px 4px; background:rgba(245,238,221,.04);
+    border-radius:12px}
+  .vgroup{margin-bottom:12px}
+  .vgroup h4{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+    margin:0 0 6px; font:600 10px/1 var(--sans); letter-spacing:.1em;
+    text-transform:uppercase; color:rgba(245,238,221,.4)}
+  /* the per-group "seleziona/deseleziona tutti" toggle — same small-text-link treatment as
+     .axis-label .presets button, just scoped to the group heading instead */
+  .vgroup h4 .gtoggle{display:inline-flex; align-items:center; background:none; border:0;
+    padding:0 4px; min-height:44px; line-height:1; letter-spacing:0; text-transform:none;
+    color:rgba(245,238,221,.4); font:500 11px var(--sans); cursor:pointer;
+    text-decoration:underline; text-underline-offset:2px; -webkit-tap-highlight-color:transparent}
+  .vgroup h4 .gtoggle:hover, .vgroup h4 .gtoggle:focus-visible{color:var(--ocra)}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin:2px 0 18px; padding:10px 12px; background:rgba(245,238,221,.04); border-radius:12px}
+  .toggle-row span{font-size:12.5px; color:rgba(245,238,221,.65); line-height:1.4}
+  /* the visible pill stays iOS-toggle sized (42x25); the button's real hit area is
+     44x44 via ::before as the track, so the tap target meets the 44px floor without
+     the switch looking oversized */
+  .switch{position:relative; width:50px; height:44px; flex:none; border-radius:12px;
+    background:none; border:0; cursor:pointer; -webkit-tap-highlight-color:transparent}
+  .switch::before{content:""; position:absolute; top:50%; left:0; margin-top:-12.5px;
+    width:42px; height:25px; border-radius:99px; background:rgba(245,238,221,.18);
+    transition:background .18s ease}
+  .switch::after{content:""; position:absolute; top:50%; left:3px; margin-top:-9.5px;
+    width:19px; height:19px; border-radius:50%; background:var(--cream);
+    transition:transform .18s ease}
+  .switch[aria-pressed="true"]::before{background:var(--ocra)}
+  .switch[aria-pressed="true"]::after{transform:translateX(17px); background:var(--petrol)}
+  .switch:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+
+  .score{display:flex; justify-content:space-between; align-items:baseline;
+    font-size:14px; color:rgba(245,238,221,.6); margin:0 0 14px;
+    font-variant-numeric:tabular-nums}
+  .score b{color:var(--ocra); font-weight:500}
+
+  /* ---- drill card ---- */
+  .card{background:var(--cream); color:var(--petrol); border-radius:16px;
+    padding:24px; box-shadow:0 18px 40px rgba(0,0,0,.35)}
+  .tiermark{display:inline-flex; align-items:center; gap:5px; font:700 10px/1 var(--sans);
+    letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border-radius:99px;
+    margin-bottom:13px}
+  .tiermark.mode-studia{background:var(--ambra-wash); color:var(--ambra)}
+  .tiermark.mode-prod, .tiermark.mode-discrim{background:rgba(16,32,43,.08); color:rgba(16,32,43,.55)}
+  .tiermark .tier{opacity:.7; font-weight:600}
+  .card-person{font:700 12px/1 var(--sans); letter-spacing:.24em; text-transform:uppercase;
+    color:var(--ocra-ink); margin-bottom:11px}
+  .card-verb{font-family:var(--serif); font-size:32px; font-weight:400; line-height:1.1;
+    letter-spacing:-.015em; color:var(--petrol); text-wrap:balance}
+  .card-sub{font-size:12.5px; font-style:italic; color:rgba(16,32,43,.45);
+    margin:5px 0 20px}
+  /* .field is a <textarea rows="1">, NOT an <input> (2026-07-27) — see the guard comment on
+     makeFieldHTML() in the script. min-height reproduces the old input box exactly:
+     20px x 1.3 line = 26 + 2x13 padding + 2x2 border = 56px. */
+  .field{width:100%; font:20px/1.3 var(--serif); padding:13px 16px; border-radius:12px;
+    border:2px solid rgba(16,32,43,.15); background:#fff; color:var(--petrol);
+    color-scheme:light; outline:none; text-align:center;
+    display:block; resize:none; overflow:hidden; min-height:56px; white-space:pre-wrap;
+    word-break:break-word}
+  .field::placeholder{color:rgba(16,32,43,.3); font-family:var(--sans); font-size:15px}
+  .field:focus{border-color:var(--ocra)}
+  .field[readonly]{background:rgba(16,32,43,.04); color:rgba(16,32,43,.55)}
+
+  .feedback{margin-top:16px; display:flex; align-items:flex-start; gap:9px;
+    border-radius:12px; padding:12px 14px; font-size:14px; line-height:1.5}
+  .feedback svg{width:18px; height:18px; flex:none; margin-top:2px}
+  .feedback.ok{background:var(--verde-wash); color:var(--verde)}
+  .feedback.no{background:var(--rosso-wash); color:var(--rosso)}
+  .feedback.half{background:var(--ambra-wash); color:var(--ambra)}
+  .you{font-family:var(--serif); text-decoration:line-through; opacity:.72}
+
+  .submit{width:100%; margin-top:16px; min-height:48px; padding:13px 0; border:0;
+    border-radius:12px; background:var(--petrol); color:var(--cream);
+    font:500 15px/1 var(--sans); cursor:pointer; -webkit-tap-highlight-color:transparent}
+  .submit:disabled{opacity:.35; cursor:default}
+  .dunno{width:100%; margin-top:8px; min-height:44px; border:0; background:none;
+    color:rgba(16,32,43,.45); font:500 13px/1 var(--sans); cursor:pointer}
+  .dunno:disabled{opacity:.3}
+
+  /* ---- discrimination choices ---- */
+  .choices{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:2px}
+  .choice{min-height:52px; border-radius:12px; border:2px solid rgba(16,32,43,.14);
+    background:#fff; color:var(--petrol); font:600 14.5px/1.25 var(--sans); cursor:pointer;
+    padding:8px 6px; -webkit-tap-highlight-color:transparent}
+  .choice:disabled{cursor:default}
+  .choice.correct{border-color:var(--verde); background:var(--verde-wash); color:var(--verde)}
+  .choice.wrong{border-color:var(--rosso); background:var(--rosso-wash); color:var(--rosso)}
+  .choice:focus-visible{outline:2px solid var(--ocra); outline-offset:2px}
+  .formShown{font-family:var(--serif); font-size:30px; text-align:center; margin:2px 0 16px}
+
+  /* ---- studia (unscored copy/shadow) ---- */
+  .studia-form{font-family:var(--serif); font-size:30px; text-align:center; margin:4px 0 6px}
+  .studia-hint{font-size:12px; text-align:center; color:rgba(16,32,43,.5); margin-bottom:16px}
+
+  /* the stem·infix·ending breakdown, shared by feedback and studia */
+  .chunks{display:flex; justify-content:center; gap:4px; margin-top:10px;
+    font-family:var(--serif); font-size:22px; letter-spacing:.01em; flex-wrap:wrap}
+  .chunks span.piece{padding:2px 7px; border-radius:7px; background:rgba(16,32,43,.07)}
+  .chunks span.thread{background:var(--ocra); color:var(--petrol); font-weight:700}
+  .chunks span.sep{background:none; padding:0 1px; opacity:.3; font-size:18px}
+
+  .reset{display:flex; align-items:center; justify-content:center; gap:6px;
+    min-height:44px; margin:16px auto 0; padding:0 14px; background:none; border:0;
+    cursor:pointer; font:12px var(--sans); color:rgba(245,238,221,.45)}
+  .reset.armed{color:var(--ocra)}
+
+  /* ---- mastery ---- */
+  .mastery{margin-top:22px}
+  .mnote{font-size:11px; line-height:1.5; color:rgba(245,238,221,.35); margin:0 0 12px}
+  .mastery h3{font:600 10.5px/1 var(--sans); letter-spacing:.14em; text-transform:uppercase;
+    color:rgba(245,238,221,.38); margin:0 0 9px}
+  .mgrid{display:grid; gap:10px; margin-bottom:16px}
+  .mrow{font-size:12.5px; color:rgba(245,238,221,.55)}
+  .mhead{display:flex; justify-content:space-between; align-items:baseline;
+    font-variant-numeric:tabular-nums}
+  .mbar{height:4px; border-radius:99px; background:rgba(245,238,221,.12);
+    overflow:hidden; margin-top:5px}
+  .mbar i{display:block; height:100%; background:var(--ocra); border-radius:99px;
+    transition:width .4s ease}
+
+  /* ---- Tabelle ---- */
+  /* verb search (v: learner request 2026-07-26 — "search any vocabulary for which I need the
+     conjugations"). Dark-theme input to match the pane it lives in (unlike .field, which is
+     the light card's input) */
+  /* 16px, not 15 — iOS zooms the whole page in when a focused text field is under 16px
+     (2026-07-27 learner report on the sibling .field; same class of bug, one token) */
+  .vsearch{width:100%; font:16px/1.3 var(--sans); padding:11px 14px; margin-bottom:10px;
+    border-radius:12px; border:1px solid rgba(245,238,221,.18); background:rgba(245,238,221,.05);
+    color:var(--cream); outline:none; -webkit-tap-highlight-color:transparent}
+  .vsearch::placeholder{color:rgba(245,238,221,.35)}
+  .vsearch:focus{border-color:var(--ocra)}
+  #vsearchOut{margin-bottom:14px}
+  #vsearchOut:empty{margin:0}
+  .vsearch-hint{font-size:12px; color:rgba(245,238,221,.5); margin:0 0 8px}
+  .vsearch-clear{display:block; min-height:36px; padding:0; background:none; border:0;
+    color:var(--ocra); font:500 12px var(--sans); text-decoration:underline;
+    text-underline-offset:2px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    margin-bottom:8px}
+  .tverb{font-size:13px; color:rgba(245,238,221,.5); margin-bottom:14px}
+  .tverb b{font-family:var(--serif); font-size:20px; font-weight:400; color:var(--cream)}
+  .table{background:var(--cream); color:var(--petrol); border-radius:16px;
+    padding:20px; margin-bottom:14px}
+  .thead{display:flex; justify-content:space-between; align-items:baseline;
+    gap:10px; margin-bottom:12px}
+  .tname{font-family:var(--serif); font-size:18px}
+  .tierbadge{font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    border-radius:4px; padding:2px 6px; flex:none}
+  .tierbadge.drilled{background:var(--ocra); color:var(--petrol)}
+  .tierbadge.pattern{border:1px solid var(--ocra-ink); color:var(--ocra-ink)}
+  .tierbadge.new{border:1px dashed rgba(16,32,43,.3); color:rgba(16,32,43,.45)}
+  .tierbadge.lookup{border:1px dashed rgba(16,32,43,.3); color:rgba(16,32,43,.45)}
+  .grid{display:grid; grid-template-columns:1fr 1fr; column-gap:16px}
+  @media (max-width:400px){ .grid{grid-template-columns:1fr} }
+  .prow{display:flex; justify-content:space-between; gap:8px; padding:5px 0;
+    border-bottom:1px solid rgba(16,32,43,.1); font-size:15px}
+  .ppron{color:rgba(16,32,43,.5); flex:none}
+  .pform{font-family:var(--serif); font-weight:500; text-align:right}
+  /* reflexive clitic (mi/ti/si/ci/vi/si), rendered by a Tabelle search on a -rsi query —
+     deliberately sans-serif + muted so it never reads as part of the generated form itself */
+  .pform .clitic{color:rgba(16,32,43,.45); font-family:var(--sans); font-weight:400; font-size:13px}
+
+  .note{background:rgba(245,238,221,.06); border-left:2px solid var(--ocra);
+    border-radius:0 10px 10px 0; padding:12px 14px; margin-bottom:14px;
+    font-size:13px; line-height:1.6; color:rgba(245,238,221,.68)}
+  .note b{color:var(--ocra)}
+  .note i{font-family:var(--serif); font-style:normal; color:var(--cream)}
+  .foot{margin-top:20px; font-size:11.5px; line-height:1.6; color:rgba(245,238,221,.32)}
+  .foot a{color:var(--ocra)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home" href="../index.html">← Italiano</a>
+  <div class="eyebrow">cinque tempi, un motore</div>
+  <h1 lang="it">coniugazioni</h1>
+  <p class="kicker"><b>📖 ripetizione — non è un voto.</b> Only your tutor's ✓/✗ in the session
+  sheets counts. Pick the verb — that's your call, not a gate — and the tense(s)/person(s) you
+  want to work. Looking at Tabelle mid-item is free; it just marks that attempt unscored.</p>
+
+  <div class="tabs" role="tablist" aria-label="Drill o tabelle">
+    <span class="thumb" id="thumb" aria-hidden="true"></span>
+    <button class="tab" role="tab" id="tab-drill" aria-controls="pane-drill" aria-selected="true">Drill</button>
+    <button class="tab" role="tab" id="tab-table" aria-controls="pane-table" aria-selected="false"
+            tabindex="-1">Tabelle</button>
+  </div>
+
+  <div class="viewport" id="viewport">
+    <div class="track" id="track">
+
+      <!-- ============ DRILL ============ -->
+      <section class="pane" id="pane-drill" role="tabpanel" aria-labelledby="tab-drill" tabindex="0">
+
+        <button class="summary" id="summary" type="button"
+                aria-expanded="false" aria-controls="selWrap"></button>
+
+        <!-- collapsed by default (learner request 2026-07-26: a wall of ~15 chips before the
+             question) — #summary above is the toggle; tense/person stay multi-select inside, so
+             the panel must NOT auto-close on a selection change, only on tapping #summary itself.
+             `hidden` collapses without removing anything from the DOM, so the delegated click
+             listeners bound to verbBar/vpanel/tenseChips/personChips/personPresets/toggleRow at
+             boot keep working whether the panel is open or shut. -->
+        <div id="selWrap" hidden>
+          <div class="axis">
+            <div class="axis-label"><span>Il verbo</span></div>
+            <div class="chips" id="verbBar"></div>
+            <div class="vpanel" id="vpanel" hidden></div>
+          </div>
+
+          <div class="axis">
+            <div class="axis-label"><span>Il tempo — scegli anche più di uno</span></div>
+            <div class="chips" id="tenseChips"></div>
+          </div>
+
+          <div class="axis">
+            <div class="axis-label"><span>La persona</span>
+              <span class="presets" id="personPresets"></span>
+            </div>
+            <div class="pgrid" id="personChips"></div>
+          </div>
+
+          <div class="toggle-row" id="toggleRow">
+            <span>Salta lo studio — vai diretto alla prova anche su celle nuove</span>
+            <button class="switch" id="forceProvaBtn" role="switch" aria-pressed="false"
+                    aria-label="Salta lo studio, vai diretto alla prova"></button>
+          </div>
+        </div>
+
+        <div class="score">
+          <span id="scoreLeft">nessun tentativo</span>
+          <span><b id="scoreRight"></b> <span id="scoreStreak"></span></span>
+        </div>
+
+        <div class="card" id="card">
+          <div class="tiermark" id="tiermark"></div>
+          <div class="card-person" lang="it" id="cuePerson">—</div>
+          <div class="card-verb" id="cueVerb" lang="it">—</div>
+          <div class="card-sub" id="cueSub"></div>
+          <div id="cardBody"></div>
+          <div id="feedback" role="status" aria-live="polite"></div>
+          <button class="submit" id="discrimNext" hidden>Avanti →</button>
+        </div>
+
+        <div class="mastery">
+          <p class="mnote">Le barre mescolano produzione scritta e scelta multipla, celle nuove e
+            consolidate — non sono un indice puro di ritenzione.</p>
+          <h3>Per tempo</h3>
+          <div class="mgrid" id="masteryTense"></div>
+          <h3>Per persona</h3>
+          <div class="mgrid" id="masteryPerson"></div>
+        </div>
+
+        <button class="reset" id="reset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4.5V9h4.5"/></svg>
+          <span id="resetLabel">ricomincia da zero</span>
+        </button>
+      </section>
+
+      <!-- ============ TABELLE ============ -->
+      <section class="pane" id="pane-table" role="tabpanel" aria-labelledby="tab-table"
+               tabindex="0" hidden>
+        <!-- verb search (learner request 2026-07-26): NOT autofocused, on purpose — the whole
+             point of Change B was to stop popping the keyboard unbidden -->
+        <input class="vsearch" id="vsearch" type="search" lang="it" autocapitalize="off"
+               autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="search"
+               placeholder="cerca un verbo — infinito, inglese, o una forma coniugata…" />
+        <div id="vsearchOut"></div>
+
+        <div class="tverb" id="tabelleVerb"></div>
+        <div id="tables"></div>
+
+        <div class="note"><b>Uno stelo, due desinenze.</b> <span lang="it">futuro</span> e
+          <span lang="it">condizionale</span> condividono lo STESSO stelo — solo le desinenze
+          cambiano. Una <span lang="it">m</span> sola è futuro (<span lang="it">-emo</span>), due
+          è condizionale (<span lang="it">-emmo</span>). Stesso principio per <i>voi</i>:
+          <span lang="it">-ete</span> (futuro) contro <span lang="it">-este</span> (condizionale).</div>
+        <div class="note"><b>Tre famiglie di ortografia (solo -are).</b>
+          <span lang="it">-care/-gare</span> → si aggiunge una <b>h</b>
+          (<span lang="it">giocare → giocherò, giochi</span>). <span lang="it">-ciare/-giare</span>
+          → si toglie la <i>i</i> davanti a una <i>e</i>
+          (<span lang="it">mangiare → mangerò</span>). Tutti gli altri <span lang="it">-iare</span>
+          la tengono (<span lang="it">studiare → studierò</span>). Davanti alla <i>i</i> propria
+          del congiuntivo, in entrambi i casi le due <i>i</i> si fondono in una sola
+          (<span lang="it">mangi</span>, <span lang="it">studi</span> — mai <i>mangii</i> o
+          <i>studii</i>).</div>
+        <div class="note"><b>Lo stesso stelo dell'imperfetto.</b> Il
+          <span lang="it">congiuntivo imperfetto</span> si costruisce sullo stelo che usi già per
+          l'<span lang="it">imperfetto</span>: <span lang="it">parla-vo → parla-ssi</span>,
+          <span lang="it">face-vo → face-ssi</span>, <span lang="it">dice-vo → dice-ssi</span>.
+          Tieni la vocale che c'è già — <span lang="it">parl<b>a</b>ssi · sap<b>e</b>ssi ·
+          ven<b>i</b>ssi</span> — e non cambia nient'altro: nessuna <span lang="it">h</span>,
+          nessuna <span lang="it">i</span> da togliere, nessun <span lang="it">-isc-</span>.
+          Solo <span lang="it">essere · dare · stare</span> fanno di testa loro.</div>
+        <div class="note"><b>Le tre persone in alto del congiuntivo sono identiche.</b>
+          <span lang="it">che io/tu/lui parli</span> — e per i verbi REGOLARI in <i>-are</i> quella
+          forma è IDENTICA all'indicativo <i>tu</i>. NON vale per gli irregolari
+          <span lang="it">andare, fare, stare, dare</span> (<span lang="it">vada</span> ≠
+          <span lang="it">vai</span>, <span lang="it">faccia</span> ≠ <span lang="it">fai</span>,
+          <span lang="it">stia</span> ≠ <span lang="it">stai</span>, <span lang="it">dia</span> ≠
+          <span lang="it">dai</span>). Il segnale non è il suono, è la parola che introduce
+          la frase (<span lang="it">penso che…</span>).</div>
+        <div class="note"><b>Le etichette (drilled / pattern / nuovo) sono informazione, non un
+          lucchetto.</b> Scegli tu cosa esercitare — anche una cella <i>nuova</i>. La prima volta
+          che la incontri parte come 📖 studio (forma mostrata, da ricopiare, non conta); dopo,
+          entra nella prova come le altre. Il tasto "salta lo studio" sopra la manda diretta alla
+          prova quando vuoi. <b>Lo stesso segnale, silenzioso, è già sui chip del Drill:</b> un
+          puntino accanto al tempo — <b>●</b> drilled, <b>○</b> pattern, nessun segno = nuovo —
+          quando hai scelto un verbo preciso; sul chip del verbo lo stesso segno riassume i suoi
+          cinque tempi (<b>●</b> tutti drilled, <b>○</b> tutti pattern, <b>◐</b> un misto, nessun
+          segno = ancora tutti nuovi). "A caso" non ha un tempo unico, quindi non porta segno.</div>
+
+        <p class="foot">Futuro semplice, imperfetto, condizionale presente, congiuntivo presente,
+        congiuntivo imperfetto — verbi regolari (-are/-ere/-ire) e lo stelo contratto degli
+        irregolari. Costruito 2026-07-26 dall'audit dell'evidenza sulle 19 sessioni; il
+        congiuntivo imperfetto aggiunto 2026-07-27 su richiesta.
+        Paradigmi completi → <a href="10-verbi.html">verbi</a>.</p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ================================================================== *
+ * 1. STORAGE — same pattern as 30-essere.html / 40-condizionale.html:
+ * localStorage when available, in-memory fallback otherwise (file://, private mode).
+ * ================================================================== */
+const KEY = "coniug-drill/v1";
+let LS_OK = false;
+try{
+  localStorage.setItem("__t","1");
+  LS_OK = localStorage.getItem("__t") === "1";
+  localStorage.removeItem("__t");
+}catch(e){ LS_OK = false; }
+const mem = Object.create(null);
+const store = {
+  get(k){ if(LS_OK){ try{ return localStorage.getItem(k); }catch(e){} } return mem[k] ?? null; },
+  set(k,v){ mem[k] = v; if(LS_OK){ try{ localStorage.setItem(k,v); }catch(e){} } }
+};
+let saveTimer = null;
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(flush, 300); }
+function flush(){
+  clearTimeout(saveTimer); saveTimer = null;
+  try{ store.set(KEY, JSON.stringify(S)); }catch(e){}
+}
+addEventListener("pagehide", flush);
+addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") flush(); });
+
+/* ================================================================== *
+ * 2. THE PARADIGM ENGINE
+ * Futuro/condizionale share ONE stem (frStem) with two ending sets — the
+ * single-m (futuro -emo) vs double-m (condizionale -emmo) contrast falls out
+ * of this shape instead of being patched in as a message. Imperfetto is
+ * infinitive-minus-re + a fixed ending for nearly every verb. Congiuntivo
+ * presente is stem + ending with a doubled-i merge (mangiare → mangi, not
+ * mangii) — the family flags (h/noi/keep) only matter for FUTURO/CONDIZIONALE
+ * stem formation (real dropping vs keeping of the historic -i-); congiuntivo's
+ * merge rule is universal and needs no family flag. Presente indicativo is
+ * generated too, ONLY to power the "reverted to the present" diagnosis.
+ * ================================================================== */
+const PRONOUNS = ["io","tu","lui/lei","noi","voi","loro"];
+const FUT_END      = ["ò","ai","à","emo","ete","anno"];
+const COND_END     = ["ei","esti","ebbe","emmo","este","ebbero"];
+const IMPF_END     = ["vo","vi","va","vamo","vate","vano"];
+const CIMP_END     = ["ssi","ssi","sse","ssimo","ste","ssero"];
+const CPRE_ARE_END = ["i","i","i","iamo","iate","ino"];
+const CPRE_EI_END  = ["a","a","a","iamo","iate","ano"];
+const PRES_ARE_END = ["o","i","a","iamo","ate","ano"];
+const PRES_ERE_END = ["o","i","e","iamo","ete","ono"];
+const PRES_IRE_END = ["o","i","e","iamo","ite","ono"];
+
+function frStem(v){
+  if(v.irr && v.irr.frStem) return v.irr.frStem;
+  const b = v.inf.slice(0, -3);
+  if(v.conj === "are"){
+    if(v.fam === "h")   return b + "h" + "er";     // giocare -> giocher-
+    if(v.fam === "noi") return b.slice(0,-1) + "er"; // mangiare -> manger-
+    return b + "er";                                 // reg / keep -> parler- / studier-
+  }
+  if(v.conj === "ere") return b + "er";               // credere -> creder-
+  return b + "ir";                                     // dormire -> dormir-
+}
+function futuro(v,pi){ return frStem(v) + FUT_END[pi]; }
+function condizionale(v,pi){ return frStem(v) + COND_END[pi]; }
+
+function imperfetto(v,pi){
+  if(v.irr && v.irr.imp) return v.irr.imp[pi];
+  const stem = (v.irr && v.irr.impStem) ? v.irr.impStem : v.inf.slice(0,-2);
+  return stem + IMPF_END[pi];
+}
+
+/* congiuntivo imperfetto (added 2026-07-27, learner request on L020 Card 1: "my
+   Konjugationi drill doesn't have this conjugations table ... I want to add and edit").
+   WHY THIS SHARES imperfetto's STEM instead of computing its own: the cimp stem IS the
+   imperfetto stem — parla-vo/parla-ssi · face-vo/face-ssi · dice-vo/dice-ssi ·
+   beve-vo/beve-ssi. Every hidden-stem verb is therefore already correct here for free
+   through irr.impStem, and the hook the learner was given ("if a verb's imperfetto is in
+   the drill, its congiuntivo imperfetto is free") is a property of the code, not a mnemonic.
+   Only essere/dare/stare need a paradigm of their own — hence irr.cimp.
+   NO SPELLING MACHINERY EXISTS IN THIS TENSE, and that absence is the point: every ending
+   opens with a consonant, so the -care/-gare h and the -giare i-drop never arise
+   (giocassi, mangiassi), and -isc- verbs take no infix (capissi, never capiscessi).
+   That is what makes it the most regular tense in the language, and it is worth saying
+   out loud to a learner who has been fighting exactly those spelling rules elsewhere. */
+function cimperfetto(v,pi){
+  if(v.irr && v.irr.cimp) return v.irr.cimp[pi];
+  const stem = (v.irr && v.irr.impStem) ? v.irr.impStem : v.inf.slice(0,-2);
+  return stem + CIMP_END[pi];
+}
+
+function congiuntivo(v,pi){
+  if(v.irr && v.irr.cpre) return v.irr.cpre[pi];
+  const b = v.inf.slice(0,-3);
+  let stem = b;
+  if(v.conj === "are" && v.fam === "h") stem = b + "h";
+  const ends = v.conj === "are" ? CPRE_ARE_END : CPRE_EI_END;
+  let end = ends[pi];
+  if(v.conj === "ire" && v.isc && pi !== 3 && pi !== 4) end = "isc" + end;
+  // LANDMINE: this merge always collapses stem-i + ending-i to ONE i, which is correct for
+  // every -iare verb in the data (studiare/mangiare, unstressed i) but would be WRONG for a
+  // genuinely stressed-i -iare verb (sciare → scii, inviare → invii, which keep both i's).
+  // No such verb is in VERBS yet — the `fam` system has no flag for it. Add one before adding
+  // sciare/inviare/spiare/etc.
+  if(stem.endsWith("i") && end.startsWith("i")) return stem.slice(0,-1) + end;
+  return stem + end;
+}
+
+/* presente indicativo — NOT one of the drilled tenses; exists purely so
+   diagnose() can recognise "you reverted to the present" (a real, named error
+   shape). h-insertion here is CONDITIONAL on the ending starting with a front
+   vowel (e/i) — unlike futuro/congiuntivo, presente also has -o/-a/-ano
+   endings that need no h (gioco, not giocho). */
+function presente(v,pi){
+  if(v.irr && v.irr.pres) return v.irr.pres[pi];
+  const b = v.inf.slice(0,-3);
+  const ends = v.conj === "are" ? PRES_ARE_END : v.conj === "ere" ? PRES_ERE_END : PRES_IRE_END;
+  let end = ends[pi];
+  if(v.conj === "ire" && v.isc && pi !== 3 && pi !== 4) end = "isc" + end;
+  let stem = b;
+  if(v.conj === "are" && v.fam === "h" && /^[ei]/.test(end)) stem = b + "h";
+  if(stem.endsWith("i") && end.startsWith("i")) return stem.slice(0,-1) + end;
+  return stem + end;
+}
+
+function formOf(v, tenseId, pi){
+  if(tenseId === "fut")  return futuro(v, pi);
+  if(tenseId === "cond") return condizionale(v, pi);
+  if(tenseId === "imp")  return imperfetto(v, pi);
+  if(tenseId === "cpre") return congiuntivo(v, pi);
+  if(tenseId === "cimp") return cimperfetto(v, pi);
+  return "";
+}
+
+/* the stem·infix·ending breakdown, shared by feedback and studia rendering */
+function chunkParts(v, tenseId, pi){
+  if(tenseId === "fut" || tenseId === "cond"){
+    const end = tenseId === "fut" ? FUT_END[pi] : COND_END[pi];
+    if(v.irr && v.irr.frStem) return [{t:v.irr.frStem, hl:true},{t:end}];
+    const b = v.inf.slice(0,-3);
+    let pre = b, connector = v.conj === "ire" ? "ir" : "er";
+    if(v.conj === "are"){
+      if(v.fam === "h") pre = b + "h";
+      else if(v.fam === "noi") pre = b.slice(0,-1);
+    }
+    return [{t:pre},{t:connector, hl:true},{t:end}];
+  }
+  if(tenseId === "imp"){
+    if(v.irr && v.irr.imp) return [{t:v.irr.imp[pi], hl:true}];
+    const stem = (v.irr && v.irr.impStem) ? v.irr.impStem : v.inf.slice(0,-2);
+    return [{t:stem.slice(0,-1)},{t:stem.slice(-1), hl:true},{t:IMPF_END[pi]}];
+  }
+  if(tenseId === "cimp"){
+    if(v.irr && v.irr.cimp) return [{t:v.irr.cimp[pi], hl:true}];
+    const stem = (v.irr && v.irr.impStem) ? v.irr.impStem : v.inf.slice(0,-2);
+    // same three-way split as imperfetto above, and for a sharper reason: the highlighted
+    // piece is the THEME VOWEL (parl-A-ssi / sap-E-ssi / ven-I-ssi), which is the error
+    // actually on record — 2026-07-27 produced *venessimo*, an -ere vowel on an -ire verb
+    return [{t:stem.slice(0,-1)},{t:stem.slice(-1), hl:true},{t:CIMP_END[pi]}];
+  }
+  if(tenseId === "cpre"){
+    if(v.irr && v.irr.cpre) return [{t:v.irr.cpre[pi], hl:true}];
+    const b = v.inf.slice(0,-3);
+    let stem = b;
+    if(v.conj === "are" && v.fam === "h") stem = b + "h";
+    const ends = v.conj === "are" ? CPRE_ARE_END : CPRE_EI_END;
+    let end = ends[pi];
+    if(v.conj === "ire" && v.isc && pi !== 3 && pi !== 4) end = "isc" + end;
+    if(stem.endsWith("i") && end.startsWith("i")) return [{t:stem.slice(0,-1)},{t:end, hl:true}];
+    return [{t:stem},{t:end, hl:true}];
+  }
+  return [{t: formOf(v,tenseId,pi)}];
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function chunkHTML(v, tenseId, pi){
+  return '<div class="chunks">' + chunkParts(v, tenseId, pi).map((p,i) =>
+    (i>0 ? '<span class="sep">·</span>' : '') +
+    '<span class="piece' + (p.hl ? ' thread' : '') + '">' + esc(p.t) + '</span>'
+  ).join("") + '</div>';
+}
+
+/* ===== DATA — filled from the taught-evidence audit across 19 sessions (2026-07-26);
+   do not invent entries. Every (verb × tense) cell carries a TIER, not a boolean:
+     drilled — real graded ✓/✗ evidence exists (date + deck ID in the trailing comment)
+     pattern — the pattern was taught, but never graded WITH this verb
+     new     — no evidence at all
+   The tier is metadata, shown on the card — never a pool filter (learner's explicit call,
+   2026-07-26: the verb/tense/person pickers ARE the gate, not the tier). A `new` cell's
+   FIRST appearance defaults to 📖 studia (shown + copied, unscored); the "salta lo studio"
+   toggle can send it straight to 🎯 prova on demand. ===== */
+/* CIMP TIERS (added 2026-07-27) — recorded here as prose, NOT as trailing line comments
+   on each entry: a `//` after tiers:{...} lands on the same line as that entry's own
+   closing brace and silently comments it out. Hit exactly that while building this
+   column; do not "tidy" these notes back onto the entries.
+     avere   drilled — avessi/avessimo ✓ graded cold repeatedly 07-21 → 07-27 (G-003)
+     potere  drilled — potessimo ✗ cold 07-27 warm-up (produced *potressimo*). A graded
+                       MISS is graded evidence: the tier records that the cell was tested,
+                       never that it was passed.
+     sapere  drilled — sapessimo ✗ cold 07-27 warm-up (left blank), ✓ same session after
+     dovere  pattern — dovessi ✓ 07-27 worksheet, but PRIMED, therefore unscored (P6)
+     venire  drilled — venissimo ✓ COLD 07-28 (L020 hw Card 1, unsupervised, G-023's own
+                       pre-registered spec: a contracted-stem verb, not avere). Was `pattern`
+                       on the strength of 07-27's primed worksheet miss (*venessimo*, an -ere
+                       vowel on an -ire verb, which that note records as partly tutor-caused);
+                       the cold pass the next day is what promoted it.
+     essere  new     — never taught. G-022 was banked 2026-07-26 precisely because a sheet
+                       demanded *fossimo* cold, so leaving this `new` is what keeps the
+                       ungraded studia step in front of it (P1). Do NOT promote it without
+                       a graded date.
+   Every other verb is `new`: this tense was taught for the first time on 2026-07-27. */
+const VERBS = [
+  { inf:"avere", en:"to have", conj:"ere", fam:"reg",
+    irr:{ frStem:"avr", pres:["ho","hai","ha","abbiamo","avete","hanno"],
+          cpre:["abbia","abbia","abbia","abbiamo","abbiate","abbiano"] },
+    tiers:{ fut:"drilled",  // avrò io ✓✓✓ cold 2026-07-21, G-009
+            imp:"drilled",  // avevo V-019 2026-07-19; avevamo 2026-06-27
+            cond:"pattern", // avrei only ever inside the 3-way-stem drill, never isolated
+            cpre:"drilled", cimp:"drilled" } }, // abbia io/tu ✓ 06-27, held cold 07-21; abbiano ✓✓ 07-18/07-21
+  { inf:"essere", en:"to be", conj:"ere", fam:"reg",
+    irr:{ frStem:"sar", pres:["sono","sei","è","siamo","siete","sono"],
+          imp:["ero","eri","era","eravamo","eravate","erano"],
+          cpre:["sia","sia","sia","siamo","siate","siano"],
+          cimp:["fossi","fossi","fosse","fossimo","foste","fossero"] },
+    tiers:{ fut:"pattern",  // only ever as passato-futuro aux, io only
+            imp:"drilled",  // ero/era solid since 06-27, G-008
+            cond:"new",     // NO graded sarei/sarebbe production exists — do not inherit 30-essere's flag
+            cpre:"pattern", cimp:"new" } }, // siano ✓✓ 07-19/25, siate ✓ 07-19/25 — sia io/tu/lui NEVER once correct (07-21: asked sia, got siano)
+  { inf:"andare", en:"to go", conj:"are", fam:"reg",
+    irr:{ frStem:"andr", pres:["vado","vai","va","andiamo","andate","vanno"],
+          cpre:["vada","vada","vada","andiamo","andiate","vadano"] },
+    tiers:{ fut:"new", imp:"new",
+            cond:"drilled", // andrei ✓✓ cold 07-08, after vaderei 07-02 -> andrerei 07-05
+            cpre:"new", cimp:"new" } },
+  { inf:"venire", en:"to come", conj:"ire", fam:"reg",
+    irr:{ frStem:"verr", pres:["vengo","vieni","viene","veniamo","venite","vengono"],
+          cpre:["venga","venga","venga","veniamo","veniate","vengano"] },
+    tiers:{ fut:"drilled",  // verrà, clean by ear+production 06-30..07-08
+            imp:"new",
+            cond:"drilled", // verrei ✓ 07-05; but 07-25 verrei used for a noi subject — person confusion, not stem
+            cpre:"pattern", // veniate ✓ 07-25
+            cimp:"drilled" } }, // venissimo ✓ COLD 07-28 (G-023, L020 hw Card 1) — promoted from
+                                // pattern the same evening. It had stayed `pattern` while the ledger
+                                // already carried the grade, and the reference pages now tell the
+                                // learner these badges ARE the live answer, so a lagging tier is not
+                                // cosmetic. Note what the pass proves: 07-27's worksheet produced
+                                // *venessimo* (an -ere vowel on an -ire verb, partly tutor-caused);
+                                // uncoached the next day he kept the theme vowel.
+  { inf:"dovere", en:"to have to", conj:"ere", fam:"reg",
+    irr:{ frStem:"dovr", pres:["devo","devi","deve","dobbiamo","dovete","devono"],
+          cpre:["debba","debba","debba","dobbiamo","dobbiate","debbano"] },
+    tiers:{ fut:"drilled",  // dovrà/dovrai/dovremo/dovranno drilled 07-14..07-25; dovremo clean ✓✓✓✓ 07-25
+            imp:"new",
+            cond:"pattern", // dovremmo only ever appears as a WRONG substitution for the futuro
+            cpre:"new", cimp:"pattern" } },
+  { inf:"fare", en:"to do/make", conj:"are", fam:"reg",
+    irr:{ frStem:"far", impStem:"face", pres:["faccio","fai","fa","facciamo","fate","fanno"],
+          cpre:["faccia","faccia","faccia","facciamo","facciate","facciano"] },
+    tiers:{ fut:"pattern",
+            imp:"drilled",  // facevo, hidden stem, ✓✓ cold 07-08, G-011
+            cond:"drilled", // farei ✓ 07-25, after farerei 07-21
+            cpre:"new", cimp:"new" } },
+  { inf:"bere", en:"to drink", conj:"ere", fam:"reg",
+    irr:{ frStem:"berr", impStem:"beve", pres:["bevo","bevi","beve","beviamo","bevete","bevono"],
+          cpre:["beva","beva","beva","beviamo","beviate","bevano"] },
+    tiers:{ fut:"new", imp:"drilled", cond:"new", cpre:"new", cimp:"new" } }, // bere x imperfetto: cleared 07-08, then FAILED COLD three times - 07-28 (bevuta), 08-09 (bevamo), 08-12 (bevo, i.e. the plain present). Tier stays 'drilled' because the tier means TAUGHT, not mastered - demoting it would wrongly re-gate the cell behind an ungraded studio step (P1). But do not read 'drilled' here as solid: this is the deck's most-relapsed mechanical cell, and as of 2026-08-12 its treatment moved to the Anki channel at the learner's own request (G-011).
+  { inf:"dire", en:"to say", conj:"ire", fam:"reg",
+    irr:{ impStem:"dice", pres:["dico","dici","dice","diciamo","dite","dicono"],
+          cpre:["dica","dica","dica","diciamo","diciate","dicano"] },
+    tiers:{ fut:"new", imp:"drilled", cond:"new", cpre:"new", cimp:"new" } }, // dire x imperfetto: cleared 06-30, relapsed 07-05, held 07-08, held again 07-28 (diceva, twice) - then BLANK cold on 08-12. Tier stays 'drilled' (taught, not mastered - see the bere note above). Same Anki treatment as of 2026-08-12.
+  { inf:"stare", en:"to stay/be", conj:"are", fam:"reg",
+    irr:{ frStem:"star", pres:["sto","stai","sta","stiamo","state","stanno"],
+          cpre:["stia","stia","stia","stiamo","stiate","stiano"],
+          cimp:["stessi","stessi","stesse","stessimo","steste","stessero"] },
+    tiers:{ fut:"new", imp:"drilled", cond:"new", cpre:"new", cimp:"new" } }, // stavo ✓ 07-02, cold ✓ 07-05
+  { inf:"potere", en:"to be able to", conj:"ere", fam:"reg",
+    irr:{ frStem:"potr", pres:["posso","puoi","può","possiamo","potete","possono"],
+          cpre:["possa","possa","possa","possiamo","possiate","possano"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"drilled" } },
+  { inf:"sapere", en:"to know", conj:"ere", fam:"reg",
+    irr:{ frStem:"sapr", pres:["so","sai","sa","sappiamo","sapete","sanno"],
+          cpre:["sappia","sappia","sappia","sappiamo","sappiate","sappiano"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"drilled" } },
+  { inf:"volere", en:"to want", conj:"ere", fam:"reg",
+    irr:{ frStem:"vorr", pres:["voglio","vuoi","vuole","vogliamo","volete","vogliono"],
+          cpre:["voglia","voglia","voglia","vogliamo","vogliate","vogliano"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"new" } },
+  { inf:"vedere", en:"to see", conj:"ere", fam:"reg", irr:{ frStem:"vedr" },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"new" } },
+  { inf:"dare", en:"to give", conj:"are", fam:"reg",
+    irr:{ frStem:"dar", pres:["do","dai","dà","diamo","date","danno"],
+          cpre:["dia","dia","dia","diamo","diate","diano"],
+          cimp:["dessi","dessi","desse","dessimo","deste","dessero"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"new" } },
+  { inf:"rimanere", en:"to stay/remain", conj:"ere", fam:"reg",
+    irr:{ frStem:"rimarr", pres:["rimango","rimani","rimane","rimaniamo","rimanete","rimangono"],
+          cpre:["rimanga","rimanga","rimanga","rimaniamo","rimaniate","rimangano"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"new" } },
+  { inf:"uscire", en:"to go out", conj:"ire", fam:"reg",
+    irr:{ pres:["esco","esci","esce","usciamo","uscite","escono"],
+          cpre:["esca","esca","esca","usciamo","usciate","escano"] },
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"new", cimp:"new" } },
+
+  /* regular -are: imperfetto/condizionale/congiuntivo tiered "drilled" at the FAMILY level —
+     the pattern was graded repeatedly across this group since 06-27 (G-014), not necessarily
+     for every individual verb below (comprare's per-verb comment already flags one such case).
+     futuro has NEVER been tested for a single one of these — the single largest gap in the
+     whole audit. Exception: cantare/tornare's cpre is downgraded to "pattern" below — the only
+     cpre evidence on record for them is 2026-07-26 ✓ primed/unscored, which by this file's own
+     tier definition (drilled = real GRADED evidence) and by P6 is not graded evidence. */
+  { inf:"parlare", en:"to speak", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"giocare", en:"to play", conj:"are", fam:"h", irr:{},
+    // imp stays "drilled" — the tier means graded evidence EXISTS (✓ or ✗), not that the cell is
+    // safe. 2026-08-15 (L026 3a, G-008): *giocavo* produced COLD as **giochievo** — a ✗. Two errors
+    // stacked: the -ere ending `-evo` on an -are verb, and a spurious **h** imported from THIS
+    // verb's own `fam:"h"` family (giochi, giocherò), which takes it in the presente and
+    // futuro/condizionale and never in the imperfetto. So the h-family membership that makes
+    // giocare interesting in fut/cond is exactly what contaminates its imperfetto. Same session,
+    // *bevevo* (bere, -ere) came out correct, so the ending sets are both owned and were
+    // mis-paired. Anyone rebuilding a drill for this cell: do NOT put a -care/-gare verb on the
+    // same sheet as the retest, or the h is available to copy and the measurement is worthless.
+    // 2026-08-22 (L030 12a, G-008): that retest was run to exactly that rule — *giocare* itself,
+    // cold, unprimed (tag:G-008 -> 0 Anki cards), no other -care/-gare verb anywhere on the sheet
+    // -- and *giocavo* came back CLEAN. No h, no -evo. So the cell now carries a ✗ and a ✓ on the
+    // same verb seven days apart, and the h-contamination is not currently reproducing. Tier is
+    // unchanged at "drilled" because the tier tracks whether graded evidence exists, not whether
+    // the cell is safe; the standing caution above still applies to any future retest.
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"pagare", en:"to pay", conj:"are", fam:"h", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"studiare", en:"to study", conj:"are", fam:"keep", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"lavorare", en:"to work", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"aspettare", en:"to wait", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"mangiare", en:"to eat", conj:"are", fam:"noi", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"viaggiare", en:"to travel", conj:"are", fam:"noi", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"cominciare", en:"to begin", conj:"are", fam:"noi", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"comprare", en:"to buy", conj:"are", fam:"reg", irr:{}, // cond IS "drilled" (it was tested) but 0-for-4 correct — fragile, not new
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"trovare", en:"to find", conj:"are", fam:"reg", irr:{}, refl:true, // trovarsi — "mi trovo bene", genuinely common
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"tornare", en:"to go back", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"pattern", cimp:"new" } }, // cpre downgraded: only evidence is 2026-07-26 ✓ primed (unscored, P6)
+  { inf:"portare", en:"to bring/carry", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"visitare", en:"to visit", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"accompagnare", en:"to accompany", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"ordinare", en:"to order", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"cercare", en:"to look for", conj:"are", fam:"h", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"provare", en:"to try", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"abitare", en:"to live (reside)", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+  { inf:"cantare", en:"to sing", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"pattern", cimp:"new" } }, // cpre downgraded: only evidence is 2026-07-26 ✓ primed (unscored, P6)
+  { inf:"arrivare", en:"to arrive", conj:"are", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"drilled", cond:"drilled", cpre:"drilled", cimp:"new" } },
+
+  /* regular -ere/-ire: congiuntivo drilled 07-16..07-19 (prenda/legga/apra), everything else new */
+  { inf:"prendere", en:"to take", conj:"ere", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"drilled", cimp:"new" } },
+  { inf:"leggere", en:"to read", conj:"ere", fam:"reg", irr:{},
+    // imp promoted new → drilled on 2026-08-17 (L027 warm-up w18a, G-008): *leggevo* produced
+    // COLD and fully on spec — one -are + one -ere side by side, and every -care/-gare verb swept
+    // off the sheet so no h was available to copy. Unprimed: G-008 has zero Anki cards (checked
+    // against AnkiConnect the same session). cimp stays "new" — it shares imperfetto's STEM, but
+    // a tier records that THIS cell was graded, and cimp was not.
+    tiers:{ fut:"new", imp:"drilled", cond:"new", cpre:"drilled", cimp:"new" } },
+  { inf:"aprire", en:"to open", conj:"ire", fam:"reg", irr:{},
+    tiers:{ fut:"new", imp:"new", cond:"new", cpre:"drilled", cimp:"new" } },
+];
+
+/* LOOKUP-ONLY verbs — searchable in the Tabelle tab, NEVER in the drill pool (no evidence tiers
+   exist for them, and flooding `a caso` with all-new cells would bury the audited 40). Every entry
+   below is REGULAR in every drilled tense.
+   `refl:true` (Fable review, 2026-07-26): an EXPLICIT WHITELIST of which of these have a verified,
+   genuinely-said reflexive — NOT a derivation rule. The resolver's -rsi handling only ever
+   renders clitics for a base that carries this flag; every other pool verb (including irregulars
+   like avere/uscire/andare/essere/stare/venire/rimanere/fare/vedere) must report NO MATCH on a
+   -rsi query, because "mi avrò"/"mi uscirò"-style forms were never verified and the whole point
+   of this file's lookup pool is to never show an unverified paradigm (C4). See the flagged entries
+   below and trovare in VERBS (trovarsi — "mi trovo bene", genuinely common).
+   RULE FOR FUTURE EDITS: a verb with an irregular futuro/condizionale stem or an irregular
+   congiuntivo may only be added WITH explicit paradigm data (`irr:{...}`) — never bare. */
+const LOOKUP_VERBS = [
+  /* reflexive bases (search accepts the -rsi form and renders with clitics) — all refl:true */
+  { inf:"alzare",      en:"to lift / (alzarsi) to get up",        conj:"are", fam:"reg",  irr:{}, refl:true },
+  { inf:"svegliare",   en:"to wake / (svegliarsi) to wake up",    conj:"are", fam:"keep", irr:{}, refl:true },
+  { inf:"lavare",      en:"to wash / (lavarsi) to wash oneself",  conj:"are", fam:"reg",  irr:{}, refl:true },
+  { inf:"sbrigare",    en:"to deal with / (sbrigarsi) to hurry",  conj:"are", fam:"h",    irr:{}, refl:true },
+  { inf:"ricordare",   en:"to remember / (ricordarsi) to recall", conj:"are", fam:"reg",  irr:{}, refl:true },
+  { inf:"preparare",   en:"to prepare / (prepararsi) to get ready", conj:"are", fam:"reg", irr:{}, refl:true },
+  { inf:"chiamare",    en:"to call / (chiamarsi) to be named",    conj:"are", fam:"reg",  irr:{}, refl:true },
+  { inf:"dimenticare", en:"to forget / (dimenticarsi)",           conj:"are", fam:"h",    irr:{}, refl:true },
+  { inf:"preoccupare", en:"to worry / (preoccuparsi) to be worried", conj:"are", fam:"reg", irr:{}, refl:true },
+  { inf:"presentare",  en:"to introduce / (presentarsi)",         conj:"are", fam:"reg",  irr:{}, refl:true },
+  { inf:"vestire",     en:"to dress / (vestirsi) to get dressed", conj:"ire", fam:"reg",  irr:{}, refl:true },
+  { inf:"divertire",   en:"to amuse / (divertirsi) to enjoy oneself", conj:"ire", fam:"reg", irr:{}, refl:true },
+  { inf:"trasferire",  en:"to transfer / (trasferirsi) to move",  conj:"ire", fam:"reg", isc:true, irr:{}, refl:true },
+  /* common regular verbs added for lookup coverage only — no evidence tiers, never enter the
+     drill. sentire/mettere/lasciare additionally carry refl:true (sentirsi/mettersi/lasciarsi —
+     all genuinely common reflexives); the rest do not. */
+  { inf:"pensare",     en:"to think",        conj:"are", fam:"reg",  irr:{} },
+  { inf:"sperare",     en:"to hope",         conj:"are", fam:"reg",  irr:{} },
+  { inf:"aiutare",     en:"to help",         conj:"are", fam:"reg",  irr:{} },
+  { inf:"imparare",    en:"to learn",        conj:"are", fam:"reg",  irr:{} },
+  { inf:"lasciare",    en:"to leave / let",  conj:"are", fam:"noi",  irr:{}, refl:true },
+  { inf:"sentire",     en:"to hear / feel",  conj:"ire", fam:"reg",  irr:{}, refl:true },
+  { inf:"dormire",     en:"to sleep",        conj:"ire", fam:"reg",  irr:{} },
+  { inf:"partire",     en:"to leave / depart", conj:"ire", fam:"reg", irr:{} },
+  { inf:"capire",      en:"to understand",   conj:"ire", fam:"reg", isc:true, irr:{} },
+  { inf:"finire",      en:"to finish",       conj:"ire", fam:"reg", isc:true, irr:{} },
+  { inf:"credere",     en:"to believe",      conj:"ere", fam:"reg",  irr:{} },
+  { inf:"scrivere",    en:"to write",        conj:"ere", fam:"reg",  irr:{} },
+  { inf:"mettere",     en:"to put",          conj:"ere", fam:"reg",  irr:{}, refl:true },
+  { inf:"chiudere",    en:"to close",        conj:"ere", fam:"reg",  irr:{} },
+];
+
+const BY_VERB = {}; VERBS.forEach(v => { BY_VERB[v.inf] = v; });
+const TENSES = [
+  { id:"fut",  label:"Futuro",               sub:"accadrà" },
+  { id:"imp",  label:"Imperfetto",           sub:"lo sfondo del passato" },
+  { id:"cond", label:"Condizionale",         sub:"ipotesi, cortesia" },
+  { id:"cpre", label:"Congiuntivo presente", sub:"dubbio, opinione" },
+  { id:"cimp", label:"Congiuntivo imperfetto", sub:"se avessi\u2026" },
+];
+const BY_TENSE = {}; TENSES.forEach(t => { BY_TENSE[t.id] = t; });
+const TIER_LABEL = { drilled:"drilled", pattern:"pattern", new:"nuovo" };
+/* selection-time tier markers (learner request, 2026-07-26): a silent, non-verbal echo of the
+   tiermark/tierbadge already shown post-draw — visible BEFORE picking, so "choose what to
+   practise" is an informed choice, not a lucky/unlucky draw. Metadata only: renders nothing
+   about the pool, filters nothing, gates nothing (see WEAK_CELLS/pickCell above — untouched).
+   One glyph vocabulary for both surfaces, reusing the app's own ◐ "partial" sign (see
+   review-deck.md's grading states) for the verb-level mixed case:
+     tense chip (a real verb selected) → the (verb,tense) tier itself: ● drilled, ○ pattern,
+       no mark = new. "a caso" has no single verb, so no single tier exists — no mark, by design.
+     verb chip → the SAME glyph, bucketed over that verb's tenses: ● only if all are
+       drilled, ○ only if all are pattern, ◐ if it's a genuine mix, no mark if all are
+       still new. Rendered via the pre-existing (until now unused) `.chip .tag` class — it already
+       carries the right size/opacity/selected-state handling, so the marker inherits currentColor
+       and never competes with the ochre selected-fill (same hue family as the label, not a new one). */
+function tenseTierMark(tid){
+  if(S.verbs.length !== 1) return "";
+  const v = BY_VERB[S.verbs[0]]; if(!v) return "";
+  const tier = v.tiers[tid];
+  return tier === "drilled" ? "●" : tier === "pattern" ? "○" : "";
+}
+function verbTierMark(v){
+  const tiers = TENSES.map(t => v.tiers[t.id]);
+  if(tiers.every(t => t === "drilled")) return "●";
+  if(tiers.every(t => t === "new")) return "";
+  if(tiers.every(t => t === "pattern")) return "○";
+  return "◐";
+}
+function tagHTML(mark){ return mark ? '<span class="tag" aria-hidden="true">'+mark+'</span>' : ""; }
+// futuro and condizionale SHARE their stem (frStem) — peeking one table mid-item reveals the
+// identical stem (and the -er- chunk, the chronic gap) as surely as peeking the other, so
+// "primed" has to be scored as ONE group for this pair, not per-tense-table
+// ...and imperfetto/congiuntivo imperfetto share THEIR stem for exactly the same reason
+// (see cimperfetto()): the imperfetto table hands over parla-/face-/dice- and so hands
+// over the cimp stem too, theme vowel included. One prime group for the pair, not two.
+const PRIME_GROUPS = { fut:["fut","cond"], cond:["fut","cond"],
+                       imp:["imp","cimp"], cimp:["imp","cimp"], cpre:["cpre"] };
+
+/* verb groups for the "tutti i verbi" expand panel — grouped by the structure that
+   actually matters here, not alphabetically */
+const isIrregular = v => !!(v.irr && (v.irr.frStem || v.irr.cpre || v.irr.impStem));
+const VERB_GROUPS = [
+  // `sum` is an OPTIONAL override for summaryLine()'s "tutti i <gruppo>" phrasing only — the
+  // panel heading keeps using `label` untouched. Needed here because lowercasing `label` alone
+  // ("tutti i stelo contratto (irregolari)") is grammatically broken (singular noun after a
+  // plural article, wrong article gender); every other group's label already reads fine
+  // lowercased, so only this one carries the override.
+  { id:"irr",  label:"Stelo contratto (irregolari)", sum:"gli irregolari", test: v => isIrregular(v) },
+  { id:"are",  label:"Regolari -are", test: v => !isIrregular(v) && v.conj === "are" && v.fam === "reg" },
+  { id:"hg",   label:"-care / -gare", test: v => !isIrregular(v) && v.conj === "are" && v.fam === "h" },
+  { id:"cg",   label:"-ciare / -giare / -iare", test: v => !isIrregular(v) && v.conj === "are" && (v.fam === "noi" || v.fam === "keep") },
+  { id:"eiri", label:"Regolari -ere / -ire", test: v => !isIrregular(v) && v.conj !== "are" },
+];
+const PINNED_VERBS = ["essere","andare"];
+
+/* weak cells to over-sample — DATA, not code, per the audit's five named seams */
+const WEAK_BOOST = 60;
+const WEAK_CELLS = [
+  { tense:"cpre", persons:[2], match:v => v.conj==="are",
+    why:"-are congiuntivo lui/lei — the best-documented recurring error, never once correct cold" },
+  { tense:"cond", persons:[3,4,5], match:v => v.conj==="are",
+    why:"-are condizionale noi/voi/loro — the -er- infix collapses under the long endings" },
+  { tense:"fut", persons:[3], match:v => true,
+    why:"futuro noi — chronically confused with condizionale (single-m/double-m)" },
+  { tense:"cond", persons:[3], match:v => true,
+    why:"condizionale noi — chronically confused with futuro" },
+  { tense:"fut", persons:[0,1,2,5], match:v => !!(v.irr && v.irr.frStem),
+    why:"contracted-stem person agreement — the stem is learned before the person-matching is" },
+  { tense:"cpre", persons:[0,1,2], match:v => v.inf==="essere",
+    why:"essere congiuntivo singular — sia io/tu/lui never once correct cold (07-21: got siano)" },
+];
+function weakBoostFor(v, tenseId, pi){
+  return WEAK_CELLS.some(w => w.tense===tenseId && w.persons.includes(pi) && w.match(v)) ? WEAK_BOOST : 0;
+}
+
+/* ================================================================== *
+ * 3. TUNABLES — the constants that shape the item mix. Change these,
+ * nothing else, to rebalance the drill.
+ * ================================================================== */
+const DISCRIM_RATIO = 0.35;      // share of prova items that are discriminazione, not produzione
+const MINIMAL_PAIR_BIAS = 0.4;   // of discrim draws: chance to force a strict futuro-vs-condizionale pair
+const CPRE_TRAP_BIAS = 0.22;     // of discrim draws: chance to force the -are cong.-vs-indic. lui/lei trap
+
+/* ================================================================== *
+ * 4. GRADING
+ * ================================================================== */
+const strip = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const norm  = s => s.trim().toLowerCase().replace(/\s+/g, " ");
+function judge(typed, target){
+  const a = norm(typed), b = norm(target);
+  if(!a) return "empty";
+  if(a === b) return "right";
+  if(strip(a) === strip(b)) return "accent";
+  return "wrong";
+}
+
+/* diagnose the WHY, not just right/wrong. `tiers`/taught status is NEVER checked here —
+   these branches scan ALL tenses/six persons unconditionally, because a `new` cell can
+   be graded exactly like any other once it's in prova mode. */
+function diagnose(typed, v, tenseId, pi){
+  const g = norm(typed);
+  const end = tenseId==="fut" ? FUT_END[pi] : tenseId==="cond" ? COND_END[pi] : null;
+
+  // 1. single/double m (or missing s) — futuro <-> condizionale, noi/voi
+  if((pi===3 || pi===4) && (tenseId==="fut" || tenseId==="cond")){
+    const other = tenseId==="fut" ? "cond" : "fut";
+    if(g === norm(formOf(v, other, pi))){
+      return pi===3
+        ? "Una <b>m</b> sola è il futuro, due il condizionale — quella che hai scritto è il "
+          + (other==="fut"?"futuro":"condizionale") + ": "
+        : "Il condizionale aggiunge una <b>s</b> (<i>-este</i>), il futuro no (<i>-ete</i>) — "
+          + "quella che hai scritto è il " + (other==="fut"?"futuro":"condizionale") + ": ";
+    }
+  }
+  // 2. kept the bare infinitive's own vowel instead of switching to -er-/-ir- (parlarei)
+  if((tenseId==="fut" || tenseId==="cond") && g === norm(v.inf.slice(0,-1) + end)){
+    return "Il tempo non usa l'infinito intero — perde una vocale e prende <b>-er-/-ir-</b>: ";
+  }
+  // 2b. the -er-/-ir- infix fell out ENTIRELY (compremmo for compreremmo — the single most
+  //     common documented shape, 3 separate sessions on comprare alone). Regular verbs only:
+  //     an frStem override means there's no separate "-er-" piece to drop in the first place.
+  if((tenseId==="fut" || tenseId==="cond") && !(v.irr && v.irr.frStem)){
+    const b = v.inf.slice(0,-3);
+    let pre = b, connector = v.conj==="ire" ? "ir" : "er";
+    if(v.conj==="are"){
+      if(v.fam==="h") pre = b + "h";
+      else if(v.fam==="noi") pre = b.slice(0,-1);
+    }
+    if(g === norm(pre + end))
+      return "Il pezzo <b>-"+connector+"-</b> è caduto — non è mai facoltativo: ";
+  }
+  // 3. contracted stem double-marked with a redundant -er- (andrerei, farerei — both on record)
+  if(v.irr && v.irr.frStem && (tenseId==="fut" || tenseId==="cond")){
+    const dbl = v.irr.frStem + (v.conj==="ire" ? "ir" : "er") + end;
+    if(g === norm(dbl)) return "Lo stelo contratto è già completo — non prende un secondo <i>-er-</i>: ";
+  }
+  // 4. right verb+tense, wrong person
+  for(let i=0;i<6;i++){
+    if(i===pi) continue;
+    if(g === norm(formOf(v, tenseId, i)))
+      return "Forma giusta, persona sbagliata — quella è <b>"+esc(PRONOUNS[i])+"</b>. Per <b>"
+           + esc(PRONOUNS[pi])+"</b>: ";
+  }
+  // 5. right verb, different tense (scanned unconditionally — no tier gate)
+  for(const t of TENSES){
+    if(t.id===tenseId) continue;
+    if(g === norm(formOf(v, t.id, pi)))
+      return "Verbo giusto, tempo sbagliato — quella è il <b>"+esc(t.label.toLowerCase())+"</b>. Per il <b>"
+           + esc(BY_TENSE[tenseId].label.toLowerCase())+"</b>: ";
+  }
+  // 6. reverted to the presente indicativo — a real, named error shape (devi, accompagni, trovate)
+  if(g === norm(presente(v, pi)))
+    return "Questo è il presente, non il <b>"+esc(BY_TENSE[tenseId].label.toLowerCase())+"</b> — per quello serve: ";
+  // 7. the chronic -are congiuntivo lui/lei trap: correct form is homographic with indicativo TU,
+  //    so "it feels wrong" — name the trap explicitly whenever nothing more specific matched.
+  //    Gated to verbs with a REGULAR congiuntivo: it's false for the four irregular -are verbs
+  //    (andare vada≠vai, fare faccia≠fai, stare stia≠stai, dare dia≠dai).
+  if(tenseId==="cpre" && pi===2 && v.conj==="are" && !(v.irr && v.irr.cpre))
+    return "Trappola nota: <span class=\"you\" lang=\"it\">"+esc(typed.trim())+"</span> non è — e la forma "
+         + "giusta è UGUALE all'indicativo <i>tu</i>. Il segnale è <i>penso che…</i>, non il suono: ";
+  // 8. avere's three different stems (avr-/abbi-/regular av-) blending together. Restricted to
+  //    avere specifically: the old `v.irr.frStem && v.irr.cpre` test matched ~16 verbs and fired
+  //    on ANY unmatched wrong answer for them, in any tense — proven misfires included "berevo"
+  //    for bevevo (an invented stem, not a stem-mixing error), "essevo" for ero, and "vengna" for
+  //    venga (a garble). avere is the one verb this message is actually true for.
+  if(v.inf === "avere")
+    return "Questo verbo ha tre steli diversi a seconda del tempo — non mescolarli qui: ";
+  // 9. -are spelling family: compare against the un-adjusted ("reg") variant
+  if(v.conj==="are" && v.fam!=="reg" && !(v.irr && (v.irr.frStem||v.irr.cpre))){
+    const regVariant = formOf(Object.assign({}, v, {fam:"reg"}), tenseId, pi);
+    if(g === norm(regVariant)){
+      if(v.fam==="h")   return "La <b>h</b> tiene il suono duro davanti a <i>e/i</i> — qui manca: ";
+      if(v.fam==="noi") return "Quella <i>i</i> serve solo davanti ad <i>a</i> — va tolta davanti a <i>e/i</i>: ";
+      if(v.fam==="keep")return "Qui la <i>i</i> è accentata e resta sempre: ";
+    }
+  }
+  // 10. -care/-gare with a SPURIOUS extra i after the h (giochierei for giocherei — the h
+  //     alone already keeps the hard sound, so treating it like a -ciare/-giare verb over-adds)
+  if(v.conj==="are" && v.fam==="h" && (tenseId==="fut"||tenseId==="cond")){
+    const b = v.inf.slice(0,-3);
+    const spurious = b + "hi" + (v.conj==="ire"?"ir":"er") + end;
+    if(g === norm(spurious)) return "La <b>h</b> da sola basta a tenere il suono duro — niente <i>i</i> in più: ";
+  }
+  // 11. -care/-gare: the h-insertion pattern borrowed straight from congiuntivo/presente
+  //     ("giochi…") spliced onto the ending instead of the true -er- connector
+  //     (giochirei for giocherei, 2026-07-19)
+  if(v.conj==="are" && v.fam==="h" && (tenseId==="fut"||tenseId==="cond")){
+    const b = v.inf.slice(0,-3);
+    const variant = b + "hir" + end; // gioc + hir + ei = giochirei
+    if(g === norm(variant)) return "Ci vuole <b>-her-</b> (o <b>-har-</b>), non <b>-hir-</b> — qui: ";
+  }
+  // 12. the -er-/-ir- connector's vowel dropped but its -r- survived
+  //     (parlrei for parlerei — the stem vowel dropped entirely, 2026-07-21; distinct from #2b
+  //     above where the whole connector disappears)
+  if((tenseId==="fut" || tenseId==="cond") && !(v.irr && v.irr.frStem)){
+    const b = v.inf.slice(0,-3);
+    let pre = b;
+    if(v.conj==="are"){
+      if(v.fam==="h") pre = b + "h";
+      else if(v.fam==="noi") pre = b.slice(0,-1);
+    }
+    const variant = pre + "r" + end;
+    if(g === norm(variant)) return "Manca la vocale del connettivo — resta solo la <b>r</b>, ma serve <b>-er-/-ir-</b> intero: ";
+  }
+  return null;
+}
+
+/* ================================================================== *
+ * 5. STATE
+ * ================================================================== */
+// The tense/person defaults are DERIVED, never literal lists. A literal here was a real bug:
+// it said ["fut","imp","cond","cpre"], which meant "all of them" until congiuntivo imperfetto
+// was added as a fifth tense — after which every fresh load (new device, cleared data, other
+// browser, or the catch-block fallback in boot()) silently started with cimp deselected, so the
+// tense the learner had just asked for was absent from the drill pool and nothing said so.
+// If a sixth tense is ever added, these must keep meaning "all" on their own.
+let S = {
+  verbs:[], tenses:TENSES.map(t=>t.id), persons:[0,1,2,3,4,5],
+  cimpMigrated:false, // one-shot: the pre-cimp save expansion in boot() has run (see there)
+  forceProva:false, verbExpanded:false, selOpen:false, // selWrap collapsed by default (v)
+  hit:0, tot:0, streak:0,
+  stats:{}, dstats:{}, seenCells:{},
+  seq:0, cur:null, done:false, draft:"", picked:null, peeked:{}, fb:null, tab:0
+};
+function ik(verbInf, tenseId, pi){ return verbInf+":"+tenseId+":"+pi; }
+function statOf(map, key){
+  const st = map[key];
+  if(!st || typeof st!=="object") return { seen:0, right:0, last:-999 };
+  return { seen:Number(st.seen)||0, right:Number(st.right)||0, last:Number(st.last)||-999 };
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ================================================================== *
+ * 6. ITEM PICKING
+ * The verb/tense/person pickers are the ONLY gate (learner's explicit call) —
+ * `tiers` never filters the candidate pool, it only decides studia-vs-prova
+ * for a cell and biases nothing about whether it can be drawn. Tense/person
+ * keep a floor of at least one selection (re-select "all" rather than
+ * emptying). The verb axis is different: an EMPTY S.verbs is itself the
+ * valid "a caso" state (all of VERBS) — no floor needed there, since empty
+ * already means "everything," never "nothing to drill."
+ * ================================================================== */
+function activeVerbs(){ return S.verbs.length ? S.verbs.map(v => BY_VERB[v]).filter(Boolean) : VERBS; }
+function pickCell(){
+  const verbs = activeVerbs(), tenses = S.tenses, persons = S.persons;
+  let best = null, top = -Infinity;
+  const seq = S.seq||0;
+  verbs.forEach(v => tenses.forEach(tid => persons.forEach(pi => {
+    if(verbs.length*tenses.length*persons.length > 1 && S.cur && S.cur.verb===v.inf
+       && S.cur.tense===tid && S.cur.pi===pi) return; // avoid immediate repeat when there's a choice
+    const key = ik(v.inf, tid, pi);
+    const st = statOf(S.stats, key);
+    const acc = st.seen ? st.right/st.seen : 0;
+    const age = Math.min(seq - st.last, 40);
+    let s = (st.seen===0 ? 100 : 0) + (1-acc)*30 + age + Math.random()*6 + weakBoostFor(v, tid, pi);
+    if(st.seen && acc<0.5 && age>=2) s += 200;
+    if(s > top){ top = s; best = { verb:v.inf, tense:tid, pi }; }
+  })));
+  return best; // never null: tenses/persons always have >=1 entry; activeVerbs() always has
+               // >=1 too (a real selection is never empty of valid infs, and an empty S.verbs
+               // resolves to all of VERBS instead of nothing)
+}
+function resolveMode(cell){
+  const v = BY_VERB[cell.verb], tier = v.tiers[cell.tense];
+  const seenKey = cell.verb + "|" + cell.tense;
+  const everSeen = !!(S.seenCells && S.seenCells[seenKey]);
+  return (tier==="new" && !everSeen && !S.forceProva) ? "studia" : "prova";
+}
+function tryMinimalPair(){
+  const verbs = activeVerbs();
+  if(!S.tenses.includes("fut") || !S.tenses.includes("cond")) return null;
+  const pool = verbs.filter(v => resolveMode({verb:v.inf,tense:"fut",pi:0})==="prova"
+                                && resolveMode({verb:v.inf,tense:"cond",pi:0})==="prova");
+  if(!pool.length) return null;
+  const v = pool[Math.floor(Math.random()*pool.length)];
+  const longPids = S.persons.filter(pi => pi>=3);
+  const pids = longPids.length ? longPids : S.persons;
+  const pi = pids[Math.floor(Math.random()*pids.length)];
+  const tense = Math.random()<0.5 ? "fut" : "cond";
+  return { kind:"discrim", sub:"pair", verb:v.inf, tense, pi, choices: shuffle(["fut","cond"]) };
+}
+function tryCpreArePair(){
+  if(!S.tenses.includes("cpre") || !S.persons.includes(2)) return null;
+  // the trap ("congiuntivo lui/lei is identical to indicativo tu") is only TRUE for verbs with
+  // a REGULAR congiuntivo — exclude the four irregular -are verbs (andare/fare/stare/dare),
+  // where vada≠vai, faccia≠fai, stia≠stai, dia≠dai
+  const pool = activeVerbs().filter(v => v.conj==="are" && !(v.irr && v.irr.cpre)
+    && resolveMode({verb:v.inf,tense:"cpre",pi:2})==="prova");
+  if(!pool.length) return null;
+  const v = pool[Math.floor(Math.random()*pool.length)];
+  // which form is SHOWN is random — otherwise the correct tap is always "Congiuntivo" and the
+  // card stops discriminating (the learner learns "trap-shaped card → tap Congiuntivo" instead
+  // of reading the form)
+  const shown = Math.random() < 0.5 ? "cpre" : "pres";
+  return { kind:"discrim", sub:"trap", verb:v.inf, tense:"cpre", pi:2, shown, choices: shuffle(["cpre","pres"]) };
+}
+function pickDiscrim(){
+  if(Math.random() < CPRE_TRAP_BIAS){ const it = tryCpreArePair(); if(it) return it; }
+  if(Math.random() < MINIMAL_PAIR_BIAS){ const it = tryMinimalPair(); if(it) return it; }
+  // generic: draw a prova-eligible cell, then discriminate its tense among the OTHER selected
+  // tenses that also resolve to prova for that verb (so a cold retrieval never sneaks into a
+  // studia-only cell — discrimination only ever draws from cells that would resolve to prova)
+  const verbs = activeVerbs();
+  const candidates = [];
+  verbs.forEach(v => S.tenses.forEach(tid => {
+    if(resolveMode({verb:v.inf,tense:tid,pi:0}) !== "prova") return;
+    S.persons.forEach(pi => candidates.push({v, tid, pi}));
+  }));
+  if(!candidates.length) return null;
+  const c = candidates[Math.floor(Math.random()*candidates.length)];
+  const others = S.tenses.filter(tid => tid!==c.tid
+    && resolveMode({verb:c.v.inf,tense:tid,pi:c.pi})==="prova");
+  if(!others.length) return null;
+  const n = Math.min(others.length, 1+Math.floor(Math.random()*3));
+  const distractors = shuffle(others).slice(0,n);
+  const choices = shuffle([c.tid, ...distractors]);
+  return { kind:"discrim", verb:c.v.inf, tense:c.tid, pi:c.pi, choices };
+}
+/* opts.focus (default false, v: iOS keyboard fix — see the comment above renderProd()) —
+   ONLY the in-card advance paths (this card's own submit, studia's submit, discrimNext) pass
+   {focus:true}; every selector path (verb/tense/person/preset/toggleRow) and boot() call this
+   with no args, so the default carries through and the on-screen keyboard stays shut. */
+function nextItem(opts){
+  const focus = !!(opts && opts.focus);
+  S.seq = (S.seq||0)+1;
+  const cell = pickCell();
+  const mode = resolveMode(cell);
+  let item;
+  if(mode === "studia"){
+    item = { kind:"studia", verb:cell.verb, tense:cell.tense, pi:cell.pi };
+  }else if(Math.random() < DISCRIM_RATIO){
+    item = pickDiscrim() || { kind:"prod", verb:cell.verb, tense:cell.tense, pi:cell.pi };
+  }else{
+    item = { kind:"prod", verb:cell.verb, tense:cell.tense, pi:cell.pi };
+  }
+  S.cur = item; S.done = false; S.draft = ""; S.picked = null; S.peeked = {}; S.fb = null;
+  renderCard(focus);
+  renderTables();
+  save();
+}
+
+/* ================================================================== *
+ * 7. CARD RENDERING — three modes: studia (unscored copy/shadow),
+ * prod (typed produzione), discrim (tap-to-choose tense ID)
+ * ================================================================== */
+const TENSE_SHORT = { fut:"futuro", imp:"imperfetto", cond:"condizionale", cpre:"congiuntivo", cimp:"congiuntivo imperfetto" };
+function renderTierMark(cell, mode){
+  const v = BY_VERB[cell.verb], tier = v.tiers[cell.tense];
+  const modeLabel = mode==="studia" ? "📖 studia" : mode==="discrim" ? "🎯 prova · quale tempo?" : "🎯 prova";
+  $("tiermark").className = "tiermark mode-" + mode;
+  $("tiermark").innerHTML = modeLabel + ' <span class="tier">· ' + esc(TIER_LABEL[tier]) + '</span>';
+}
+/* ---- the answer field ----
+ * It is a <textarea rows="1">, NOT an <input>. Learner report (2026-07-27, Chrome on iPhone):
+ * tapping the answer box popped the browser's saved-ID/password suggestion bubble right above
+ * the keyboard — always EMPTY, since this page has no login, so it was pure noise sitting
+ * exactly where he was looking. The field was a bare `<input>` with no type= and no name=,
+ * inside no <form> — precisely the shape the autofill heuristic treats as a candidate username
+ * field. `autocomplete="off"` was already set and is deliberately ignored by that heuristic.
+ * A <textarea> is not an autofill candidate, which removes the heuristic instead of arguing
+ * with it; this is also the pattern already in daily use in tools/_sheet-base.html (every
+ * worksheet answer box is a rows="1" textarea, and the bubble has never appeared there).
+ * Do NOT add a name= "for correctness" — there is no form, and a name only re-feeds the
+ * heuristic this swap exists to evict. Do NOT put whitespace between the tags: it would become
+ * the value, hiding the placeholder and persisting blanks into S.draft.
+ * Enter is safe: both keydown handlers preventDefault() before anything else (with the
+ * isComposing/keyCode 229 IME guard), so no newline can ever be typed. */
+function makeFieldHTML(placeholder){
+  return '<textarea class="field" id="answer" rows="1" lang="it" autocapitalize="off" '
+    + 'autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="done" '
+    + 'data-1p-ignore data-lpignore="true" data-form-type="other" '
+    + 'placeholder="' + placeholder + '"></textarea>';
+}
+/* Grow to fit a wrapped form. NOT the _sheet-base.html one-liner: that uses scrollHeight, which
+ * excludes the border, and .field has a 2px border under box-sizing:border-box — copying it
+ * verbatim would clip by 4px. Assigning .value fires no `input` event, so every programmatic
+ * write below calls this explicitly. */
+function autoGrow(el){
+  if(!el) return;
+  el.style.height = "auto";
+  el.style.height = (el.scrollHeight + (el.offsetHeight - el.clientHeight)) + "px";
+}
+function setAnswer(text){ const el = $("answer"); if(!el) return; el.value = text; autoGrow(el); }
+
+/* ---- keeping the question above the keyboard (2026-07-27) ----------------------------------
+ * Learner report (Chrome on iPhone): "the keyboard hides the question and the input window —
+ * I have to scroll up a little bit every time." He needs the cue (which verb · which person ·
+ * which tense) and the box he is typing in visible TOGETHER, above the keyboard.
+ *
+ * Three decisions here are load-bearing. Do not "simplify" any of them back out:
+ *
+ * · WHY window, not .viewport. .viewport is `overflow:clip` (bc3f437, deliberate — `hidden`
+ *   made it a live scroll container and the two-pane track panned sideways). `clip` is by spec
+ *   NOT a scroll container, so scrollIntoView() and caret-reveal inside it do nothing at all.
+ *   The document is the only scroller on this page. Reverting to a container-scroll approach
+ *   means reverting bc3f437, which is the sideways-wobble bug.
+ *
+ * · WHY visualViewport-resize-driven, not a setTimeout. iOS animates the keyboard in over
+ *   ~300ms and fires visualViewport `resize` repeatedly throughout; one timed shot lands
+ *   mid-animation and mis-scrolls. This routine is idempotent, so re-running it on every
+ *   resize is free and converges. (window `resize` is useless here — iOS/WebKit does not
+ *   resize the LAYOUT viewport for the keyboard, only the visual one; that is the same
+ *   constraint that made v0.25 delete the fixed bottom bar.)
+ *
+ * · WHY focusout must never scroll. On iOS, tapping Controlla sequences touchend → mousedown →
+ *   focusout → mouseup → click. A scroll inside focusout moves the hit-test target between
+ *   mousedown and mouseup, and the tap is silently eaten. focusout clears state, nothing more.
+ *
+ * The activeElement re-entrancy check is also load-bearing, not padding: renderDiscrim emits
+ * NO #answer and NO #submit, and advancing from a prod card by Enter destroys the focused
+ * textarea via innerHTML — which fires no blur/focusout at all. Without the check, the
+ * keyboard-close resize would run this math against a null #submit. */
+let kbFieldFocused = false, frameBackstop = 0;
+
+function frameField(behavior){
+  const vv = window.visualViewport;
+  if(!vv || !kbFieldFocused) return;
+  const answer = $("answer");
+  if(!answer || document.activeElement !== answer) return;   // see re-entrancy note above
+  const top = $("cuePerson");
+  const fb = $("feedback");
+  // once the answer is graded the correction is what he needs to see, so the frame grows down
+  const bottom = (S.done && fb && fb.className) ? fb : ($("submit") || answer);
+  if(!top || !bottom) return;
+  const kbInset = window.innerHeight - (vv.offsetTop + vv.height);
+  if(kbInset < 80) return;                 // no software keyboard up (desktop) — leave it alone
+  const PAD = 12, y = window.scrollY;
+  const frameTop = top.getBoundingClientRect().top + y - PAD;
+  const frameBot = bottom.getBoundingClientRect().bottom + y + PAD;
+  const bandBot = y + vv.offsetTop + vv.height;               // keyboard top, in document coords
+  let target = y;
+  if(frameBot > bandBot) target = y + (frameBot - bandBot);   // lift the frame clear of the keyboard
+  // ...but the QUESTION wins if the frame is taller than the band: Enter already submits, so
+  // #submit being visible is secondary to the cue being visible. This is his actual complaint.
+  if(frameTop < target + vv.offsetTop) target = frameTop - vv.offsetTop;
+  target = Math.max(0, Math.round(target));
+  if(Math.abs(target - y) < 2) return;
+  window.scrollTo({ top: target, behavior: behavior || "auto" });
+}
+
+/* Re-frame after the card grows a feedback block. .viewport animates its height over .34s and
+ * clips, so a freshly-added #feedback is genuinely CLIPPED (not merely scrolled past) until the
+ * animation lands — the delayed pass is the one that can reveal it. transitionend alone is not
+ * enough: prefers-reduced-motion sets `transition:none !important`, and syncHeight re-setting an
+ * unchanged height starts no transition, so in both of those cases it never fires. Immediate
+ * pass covers those (the height change is instant there); transitionend keeps the animated case
+ * snappy; the timeout is the backstop. All three are idempotent. */
+function frameFieldSettled(){
+  frameField("auto");
+  const vp = $("viewport");
+  if(vp) vp.addEventListener("transitionend", onFrameTransitionEnd);
+  clearTimeout(frameBackstop);
+  frameBackstop = setTimeout(() => { detachFrameTransition(); frameField("smooth"); }, 420);
+}
+function onFrameTransitionEnd(e){
+  if(e.propertyName !== "height") return;
+  detachFrameTransition(); clearTimeout(frameBackstop);
+  frameField("smooth");
+}
+function detachFrameTransition(){
+  const vp = $("viewport");
+  if(vp) vp.removeEventListener("transitionend", onFrameTransitionEnd);
+}
+
+document.addEventListener("focusin", e => {
+  if(!e.target || e.target.id !== "answer") return;
+  kbFieldFocused = true;
+  frameField("auto");   // covers the keyboard-already-up path, where no resize ever fires
+});
+document.addEventListener("focusout", e => {
+  if(!e.target || e.target.id !== "answer") return;
+  kbFieldFocused = false;   // state only — scrolling here eats the Controlla tap (see above)
+  detachFrameTransition(); clearTimeout(frameBackstop);
+});
+if(window.visualViewport) window.visualViewport.addEventListener("resize", () => frameField("auto"));
+
+function renderCard(focus){
+  const c = S.cur; if(!c) return;
+  // a new card always starts scrolled fully left — guards against the tab-slide viewport
+  // desyncing (scrollLeft creeping off 0) and bleeding the inert pane through
+  if(viewport) viewport.scrollLeft = 0;
+  const dn = $("discrimNext"); dn.hidden = true; dn.disabled = true; dn.onclick = null;
+  if(c.kind === "studia") renderStudia(c, focus);
+  else if(c.kind === "discrim") renderDiscrim(c);
+  else renderProd(c, focus);
+}
+
+/* ---- studia ---- */
+function renderStudia(c, focus){
+  const v = BY_VERB[c.verb];
+  renderTierMark(c, "studia");
+  $("cuePerson").textContent = PRONOUNS[c.pi];
+  $("cueVerb").textContent = v.inf;
+  $("cueSub").textContent = v.en + " — " + BY_TENSE[c.tense].label.toLowerCase() + " · non hai ancora questa cella: guardala e ricopiala";
+  const target = formOf(v, c.tense, c.pi);
+  $("cardBody").innerHTML =
+    '<div class="studia-form" lang="it">' + esc(target) + '</div>'
+    + chunkHTML(v, c.tense, c.pi)
+    + '<p class="studia-hint">Ricopiala — non conta come tentativo.</p>'
+    + makeFieldHTML("ricopia qui…")
+    + '<button class="submit" id="submit">Ho scritto → prossimo</button>';
+  $("feedback").innerHTML = ""; $("feedback").className = "";
+  const answer = $("answer"), submit = $("submit");
+  submit.disabled = true;
+  answer.addEventListener("input", () => {
+    autoGrow(answer);
+    submit.disabled = !answer.value.trim();
+  });
+  answer.addEventListener("keydown", e => {
+    if(e.key!=="Enter" || e.isComposing || e.keyCode===229) return;
+    e.preventDefault();
+    if(!submit.disabled) submit.click();
+  });
+  submit.addEventListener("click", () => {
+    const seenKey = c.verb + "|" + c.tense;
+    if(!S.seenCells) S.seenCells = {};
+    S.seenCells[seenKey] = true;
+    save();
+    nextItem({ focus:true }); // in-card advance — carries focus to the next item's input
+  });
+  if(focus) answer.focus({ preventScroll:true });
+}
+
+/* ---- produzione (typed) ----
+ * Carries forward every fix from 40-condizionale.html: form-generation takes the
+ * verb OBJECT here (not a bare infinitive string) because family/conj metadata is
+ * needed for correct spelling across 4 tenses — call sites are consistent about
+ * this, so the string/object confusion 40 had to fix cannot recur. The rest is
+ * verbatim: 400ms settle lockout, Enter ignores isComposing/keyCode 229 +
+ * preventDefault, feedback div gets BOTH innerHTML and className reset on redraw,
+ * reset redraws the card. CHANGED here (2026-07-26, learner request): the refocus with
+ * {preventScroll:true} is no longer unconditional — it now depends on an explicit `focus`
+ * param threaded from nextItem()/renderCard(). Every selector chip (verb/tense/person/preset/
+ * toggleRow) and boot() also funnel into this function via nextItem()/renderCard(), and on iOS
+ * a chip tap is a real user gesture, so Safari honoured the programmatic focus and popped the
+ * keyboard on every selector tap — including just opening the page. Only the true in-card
+ * advance paths (this card's own submit, studia's submit, discrimNext) pass focus:true. Do not
+ * revert this to unconditional — that regression is exactly what this comment is guarding
+ * against for the next reader. */
+function renderProd(c, focus){
+  const v = BY_VERB[c.verb];
+  renderTierMark(c, "prod");
+  $("cuePerson").textContent = PRONOUNS[c.pi];
+  $("cueVerb").textContent = v.inf;
+  $("cueSub").textContent = v.en + " — " + BY_TENSE[c.tense].label.toLowerCase();
+  $("cardBody").innerHTML =
+    makeFieldHTML("scrivi la forma…")
+    + '<button class="submit" id="submit">Controlla</button>'
+    + '<button class="dunno" id="dunno">Non lo so — mostrami</button>';
+  $("feedback").innerHTML = ""; $("feedback").className = "";
+  const answer = $("answer"), submit = $("submit"), dunno = $("dunno");
+  if(typeof S.draft === "string" && S.draft){ answer.value = S.draft; autoGrow(answer); }
+  submit.disabled = !answer.value.trim();
+  answer.addEventListener("input", () => {
+    if(S.done) return;
+    autoGrow(answer);
+    submit.disabled = !answer.value.trim();
+    S.draft = answer.value; save();
+  });
+  answer.addEventListener("keydown", e => {
+    if(e.key!=="Enter") return;
+    if(e.isComposing || e.keyCode===229) return;
+    e.preventDefault();
+    if(!submit.disabled) submit.click();
+  });
+  submit.addEventListener("click", () => { S.done ? nextItem({ focus:true }) : checkProd(); });
+  dunno.addEventListener("click", () => { if(!S.done) dunnoProd(); });
+  if(focus) answer.focus({ preventScroll:true });
+}
+function checkProd(){
+  const c = S.cur; if(!c || S.done) return;
+  const v = BY_VERB[c.verb], target = formOf(v, c.tense, c.pi);
+  const typed = $("answer").value;
+  const verdict = judge(typed, target);
+  if(verdict === "empty") return;
+  // mark the cell as seen so a `new`-tier cell graded here doesn't silently demote back to
+  // 📖 studia if the "salta lo studio" toggle changes later
+  const seenKey = c.verb + "|" + c.tense;
+  if(!S.seenCells) S.seenCells = {};
+  S.seenCells[seenKey] = true;
+  const primed = !!(S.peeked && S.peeked[c.tense]);
+  const key = ik(c.verb, c.tense, c.pi);
+  let fb;
+  if(primed){
+    fb = { kind:"primed", typed:typed.trim() };
+  }else{
+    const st = statOf(S.stats, key);
+    st.last = S.seq||0;
+    if(verdict === "right"){
+      st.seen++; st.right += 1; S.stats[key] = st;
+      S.tot++; S.hit++; S.streak++;
+      fb = { kind:"right", typed:typed.trim() };
+    }else if(verdict === "accent"){
+      st.seen++; st.right += 0.5; S.stats[key] = st;
+      S.tot++; S.hit += 0.5; S.streak = 0;
+      fb = { kind:"accent", typed:typed.trim() };
+    }else{
+      st.seen++; S.stats[key] = st;
+      S.tot++; S.streak = 0;
+      fb = { kind:"wrong", typed:typed.trim() };
+    }
+  }
+  showFeedbackProd(fb, v, c);
+  setAnswer(target);
+  settleProd();
+}
+function dunnoProd(){
+  const c = S.cur; if(!c || S.done) return;
+  const v = BY_VERB[c.verb];
+  showFeedbackProd({ kind:"shown" }, v, c);
+  setAnswer(formOf(v, c.tense, c.pi));
+  settleProd();
+}
+function showFeedbackProd(fb, v, c){
+  S.fb = fb;
+  const el = $("feedback");
+  const chunks = chunkHTML(v, c.tense, c.pi);
+  if(fb.kind==="primed"){
+    el.className = "feedback half";
+    el.innerHTML = "La tabella era aperta — non conta, tornerà." + chunks;
+  }else if(fb.kind==="right"){
+    el.className = "feedback ok";
+    el.innerHTML = "Esatto." + chunks;
+  }else if(fb.kind==="accent"){
+    el.className = "feedback half";
+    el.innerHTML = "Giusta, manca l'accento — conta come metà." + chunks;
+  }else if(fb.kind==="shown"){
+    el.className = "feedback half";
+    el.innerHTML = "Guarda i pezzi — non conta come tentativo." + chunks;
+  }else{
+    el.className = "feedback no";
+    const why = diagnose(fb.typed||"", v, c.tense, c.pi);
+    const crossed = '<span class="you" lang="it">'+esc(fb.typed||"")+'</span>';
+    el.innerHTML = (why || ("Hai scritto "+crossed+" — la forma è: ")) + chunks;
+  }
+}
+function settleProd(){
+  S.done = true;
+  const answer = $("answer"), submit = $("submit"), dunno = $("dunno");
+  answer.readOnly = true; dunno.disabled = true;
+  submit.textContent = "Avanti →"; submit.disabled = true;
+  setTimeout(() => { if(S.done) submit.disabled = false; }, 400);
+  renderScore(); renderMastery(); save();
+  frameFieldSettled();   // the feedback just appeared below the button — bring it into view
+}
+
+/* ---- discriminazione (tap-to-choose) ---- */
+const DISCRIM_LABEL = { fut:"Futuro", imp:"Imperfetto", cond:"Condizionale", cpre:"Congiuntivo", cimp:"Congiuntivo imperfetto", pres:"Indicativo" };
+function renderDiscrim(c){
+  const v = BY_VERB[c.verb];
+  renderTierMark(c, "discrim");
+  const form = (c.sub === "trap")
+    ? (c.shown === "pres" ? presente(v, c.pi) : congiuntivo(v, c.pi))
+    : (c.tense==="cpre" ? congiuntivo(v,c.pi) : formOf(v, c.tense, c.pi));
+  if(c.sub === "trap"){
+    $("cuePerson").textContent = "Marco (lui)";
+    $("cueVerb").textContent = form;
+    $("cueSub").textContent = v.inf + " (" + v.en + ") — congiuntivo o indicativo presente?";
+  }else{
+    $("cuePerson").textContent = PRONOUNS[c.pi];
+    $("cueVerb").textContent = form;
+    $("cueSub").textContent = v.inf + " (" + v.en + ") — quale tempo?";
+  }
+  $("cardBody").innerHTML =
+    '<div class="choices" id="choices">'
+    + c.choices.map(id => '<button class="choice" data-t="'+id+'">'+esc(DISCRIM_LABEL[id])+'</button>').join("")
+    + '</div>'
+    + '<button class="dunno" id="dunno">Non lo so — mostrami</button>';
+  $("feedback").innerHTML = ""; $("feedback").className = "";
+  $("choices").addEventListener("click", e => {
+    const b = e.target.closest(".choice");
+    if(b && !S.done) gradeDiscrim(b.dataset.t);
+  });
+  $("dunno").addEventListener("click", () => { if(!S.done) dunnoDiscrim(); });
+}
+function gradeDiscrim(pickedId){
+  const c = S.cur; if(!c || S.done) return;
+  const v = BY_VERB[c.verb];
+  S.picked = pickedId;
+  const correctId = c.sub==="trap" ? (c.shown || "cpre") : c.tense;
+  // mark the cell as seen so a `new`-tier cell graded here doesn't silently demote back to
+  // 📖 studia if the "salta lo studio" toggle changes later
+  const seenKey = c.verb + "|" + c.tense;
+  if(!S.seenCells) S.seenCells = {};
+  S.seenCells[seenKey] = true;
+  const primed = !!(S.peeked && S.peeked[c.tense]);
+  const correct = pickedId === correctId;
+  let fb;
+  if(primed){
+    fb = { kind:"primed" };
+  }else{
+    const key = ik(c.verb, c.tense, c.pi);
+    const st = statOf(S.dstats, key);
+    st.seen++; if(correct) st.right++; st.last = S.seq||0; S.dstats[key] = st;
+    S.tot++; if(correct){ S.hit++; S.streak++; } else S.streak = 0;
+    fb = { kind: correct ? "right" : "wrong" };
+  }
+  showFeedbackDiscrim(fb, v, c, correctId);
+  settleDiscrim();
+}
+function dunnoDiscrim(){
+  const c = S.cur; if(!c || S.done) return;
+  const v = BY_VERB[c.verb];
+  const correctId = c.sub==="trap" ? (c.shown || "cpre") : c.tense;
+  showFeedbackDiscrim({ kind:"shown" }, v, c, correctId);
+  settleDiscrim();
+}
+function showFeedbackDiscrim(fb, v, c, correctId){
+  S.fb = fb;
+  const el = $("feedback");
+  document.querySelectorAll("#choices .choice").forEach(b => {
+    b.disabled = true;
+    if(b.dataset.t === correctId) b.classList.add("correct");
+    if(fb.kind!=="primed" && fb.kind!=="shown" && b.dataset.t===S.picked && S.picked!==correctId)
+      b.classList.add("wrong");
+  });
+  const chunks = c.sub==="trap"
+    ? (correctId==="cpre" ? chunkHTML(v,"cpre",c.pi)
+        : '<div class="chunks"><span class="piece thread">'+esc(presente(v,c.pi))+'</span></div>')
+    : chunkHTML(v, c.tense, c.pi);
+  const label = esc(DISCRIM_LABEL[correctId]);
+  if(fb.kind==="primed"){
+    el.className = "feedback half";
+    el.innerHTML = "Tabella aperta — non conta, tornerà.<br>" + label + chunks;
+  }else if(fb.kind==="shown"){
+    el.className = "feedback half";
+    el.innerHTML = "Ecco la risposta — non conta come tentativo. " + label + chunks;
+  }else if(fb.kind==="right"){
+    el.className = "feedback ok";
+    el.innerHTML = "Esatto — " + label + "." + chunks;
+    if(c.sub==="trap") el.innerHTML += "<p style=\"margin:8px 0 0;font-size:12.5px;opacity:.8\">"
+      + "È uguale all'indicativo <i>tu</i> — il segnale è <i>penso che…</i>, non il suono.</p>";
+  }else{
+    el.className = "feedback no";
+    el.innerHTML = "Era " + label + ", non " + esc(DISCRIM_LABEL[S.picked] || S.picked || "?") + "." + chunks;
+  }
+}
+function settleDiscrim(){
+  S.done = true;
+  const nb = $("discrimNext");
+  nb.hidden = false; nb.disabled = true;
+  nb.onclick = () => { if(S.done) nextItem({ focus:true }); }; // in-card advance
+  setTimeout(() => { if(S.done) nb.disabled = false; }, 400);
+  const dunno = $("dunno"); if(dunno) dunno.disabled = true;
+  renderScore(); renderMastery(); save();
+}
+
+/* ================================================================== *
+ * 8. SCORE + MASTERY
+ * ================================================================== */
+// whole numbers print bare; a fractional value (accent half-credit) prints with ONE decimal —
+// never a float-noise tail like 0.30000000000000004 (0.5 increments only, so toFixed(1) is exact)
+function fmtNum(n){ return Number.isInteger(n) ? String(n) : n.toFixed(1); }
+function renderScore(){
+  $("scoreLeft").textContent = S.tot ? fmtNum(S.hit) + "/" + S.tot + " corrette" : "nessun tentativo";
+  $("scoreRight").textContent = S.tot ? Math.round(S.hit / S.tot * 100) + "%" : "";
+  $("scoreStreak").textContent = (S.streak||0) >= 3 ? ("🔥 " + S.streak) : "";
+}
+function renderMastery(){
+  const perTense = TENSES.map(t => {
+    let seen=0, right=0;
+    Object.keys(S.stats).forEach(k => { if(k.split(":")[1]===t.id){ const st=statOf(S.stats,k); seen+=st.seen; right+=st.right; } });
+    Object.keys(S.dstats).forEach(k => { if(k.split(":")[1]===t.id){ const st=statOf(S.dstats,k); seen+=st.seen; right+=st.right; } });
+    const pct = seen ? Math.round(right/seen*100) : 0;
+    return '<div class="mrow"><div class="mhead"><span>'+esc(t.label)+'</span><span>'
+      + (seen ? pct+"% · "+seen : "—") + '</span></div><div class="mbar"><i style="width:'+pct+'%"></i></div></div>';
+  }).join("");
+  const perPerson = PRONOUNS.map((p,pi) => {
+    let seen=0, right=0;
+    Object.keys(S.stats).forEach(k => { if(Number(k.split(":")[2])===pi){ const st=statOf(S.stats,k); seen+=st.seen; right+=st.right; } });
+    const pct = seen ? Math.round(right/seen*100) : 0;
+    return '<div class="mrow"><div class="mhead"><span lang="it">'+esc(p)+'</span><span>'
+      + (seen ? pct+"% · "+seen : "—") + '</span></div><div class="mbar"><i style="width:'+pct+'%"></i></div></div>';
+  }).join("");
+  $("masteryTense").innerHTML = perTense;
+  $("masteryPerson").innerHTML = perPerson;
+}
+
+/* ================================================================== *
+ * 9. SELECTORS — verb (single + collapsible "tutti i verbi"), tense
+ * (multi-select, floor 1), person (multi-select, floor 1, + presets),
+ * forceProva toggle, and the always-visible summary line.
+ * ================================================================== */
+const PERSON_PRESETS = [
+  { id:"tutte", label:"tutte", persons:[0,1,2,3,4,5] },
+  { id:"lunghe", label:"lunghe · noi voi loro", persons:[3,4,5] },
+  { id:"corte", label:"corte · io tu lui", persons:[0,1,2] },
+];
+/* the summary line is now ALSO the collapsed panel's only visible surface (selWrap default
+   collapsed, v) — so it carries the same ● ○ ◐ evidence-tier glyphs the chips show underneath,
+   via the SAME two functions (verbTierMark/tenseTierMark), never a re-derivation, so choosing
+   what to practise stays an informed choice even with the chips hidden. Verb mark only when a
+   real verb is picked (verbTierMark needs a verb object — "a caso" has none); tense mark only
+   when exactly ONE tense is selected (a multi-tense selection has no single tier to show, same
+   reasoning tenseTierMark already applies to "a caso"). */
+function summaryLine(){
+  const n = S.verbs.length;
+  // does the current selection exactly equal one whole VERB_GROUPS family? then name it,
+  // rather than either "a caso" (wrong — it IS a real restriction) or a long verb list.
+  const groupMatch = n ? VERB_GROUPS.find(g => {
+    const members = VERBS.filter(g.test).map(v=>v.inf);
+    return members.length===n && members.every(inf=>S.verbs.includes(inf));
+  }) : null;
+  // VERB_GROUPS labels are written for the (uppercased-by-CSS) panel heading, not for sitting
+  // mid-sentence after "tutti i" — lowercase just the first letter so it reads as prose here
+  // ("tutti i regolari -are", not "tutti i Regolari -are"). One group (irr) can't be fixed by
+  // lowercasing alone (wrong article + singular/plural mismatch), so it carries a `sum` override
+  // consumed here instead — see the comment on VERB_GROUPS itself.
+  const verbText = n===0 ? "a caso (" + VERBS.length + " verbi)"
+    : groupMatch ? (groupMatch.sum ? "tutti " + groupMatch.sum
+        : "tutti i " + groupMatch.label.charAt(0).toLowerCase() + groupMatch.label.slice(1))
+    : n<=4 ? S.verbs.join(", ")
+    : n + " verbi selezionati";
+  const verbObj = n===1 ? BY_VERB[S.verbs[0]] : null; // tier mark only for a single real verb
+  const verbMark = verbObj ? tagHTML(verbTierMark(verbObj)) : "";
+  const tenseText = S.tenses.length===TENSES.length ? "tutti i tempi" : S.tenses.map(id=>TENSE_SHORT[id]).join(" + ");
+  const tenseMark = S.tenses.length===1 ? tagHTML(tenseTierMark(S.tenses[0])) : "";
+  const personText = S.persons.length===6 ? "tutte le persone" : S.persons.map(pi=>PRONOUNS[pi]).join(" ");
+  return '<b>' + esc(verbText) + '</b>' + verbMark + ' · <span>' + esc(tenseText) + '</span>' + tenseMark
+       + ' · <span>' + esc(personText) + '</span>';
+}
+function renderSummary(){
+  $("summary").innerHTML = '<span class="sumtext">' + summaryLine() + '</span>'
+    + '<span class="chev" aria-hidden="true">' + (S.selOpen ? "▴" : "▾") + '</span>';
+}
+/* the collapse/expand mechanics themselves — separate from renderSummary() (which only redraws
+   the TEXT) so a selection change can call renderSummary() without ever touching selWrap's open
+   state (requirement: the panel stays open across selections; only tapping #summary toggles it) */
+function updateSelWrap(){
+  $("summary").setAttribute("aria-expanded", String(!!S.selOpen));
+  $("selWrap").hidden = !S.selOpen;
+  syncHeight(); // the ResizeObserver on panes[] will also catch this, but update immediately too
+}
+
+function renderVerbBar(){
+  // pinned chips always show, regardless of selection; anything ELSE currently selected is an
+  // "additional" chip, capped at 3 (learner picking a whole group could otherwise put ~20 chips
+  // in this bar and break narrow-screen layout) — the rest collapse into a non-interactive
+  // "+N altri" count, with the full detail left to the summary line instead.
+  const extra = S.verbs.filter(inf => !PINNED_VERBS.includes(inf));
+  const shown = extra.slice(0,3);
+  const overflow = extra.length - shown.length;
+  $("verbBar").innerHTML =
+    '<button class="chip" data-v="a caso" aria-pressed="'+(S.verbs.length===0)+'">a caso 🎲</button>'
+    + PINNED_VERBS.map(inf => '<button class="chip" data-v="'+esc(inf)+'" aria-pressed="'+S.verbs.includes(inf)+'" lang="it">'
+        + esc(inf) + tagHTML(verbTierMark(BY_VERB[inf])) + '</button>').join("")
+    + shown.map(inf => '<button class="chip" data-v="'+esc(inf)+'" aria-pressed="true" lang="it">'
+        + esc(inf) + tagHTML(verbTierMark(BY_VERB[inf])) + '</button>').join("")
+    + (overflow>0 ? '<span class="chip-more">+'+overflow+' altri</span>' : "")
+    + '<button class="chip ghost" id="verbExpandBtn" aria-expanded="'+(!!S.verbExpanded)+'">tutti i verbi ▾</button>';
+  $("vpanel").hidden = !S.verbExpanded;
+  if(S.verbExpanded) renderVerbPanel();
+}
+function renderVerbPanel(){
+  $("vpanel").innerHTML = VERB_GROUPS.map(g => {
+    const members = VERBS.filter(g.test);
+    if(!members.length) return "";
+    const allIn = members.every(v => S.verbs.includes(v.inf));
+    return '<div class="vgroup"><h4><span>'+esc(g.label)+'</span>'
+      + '<button class="gtoggle" data-vg="'+g.id+'" aria-pressed="'+allIn+'">'
+      + (allIn ? "deseleziona tutti" : "seleziona tutti") + '</button></h4><div class="chips">'
+      + members.map(v => '<button class="chip" data-v="'+esc(v.inf)+'" aria-pressed="'+S.verbs.includes(v.inf)+'" lang="it">'
+          + esc(v.inf) + tagHTML(verbTierMark(v)) + '</button>').join("")
+      + '</div></div>';
+  }).join("");
+}
+function renderTenseChips(){
+  $("tenseChips").innerHTML = TENSES.map(t =>
+    '<button class="chip" data-t="'+t.id+'" aria-pressed="'+S.tenses.includes(t.id)+'" lang="it">'
+    + esc(TENSE_SHORT[t.id]) + tagHTML(tenseTierMark(t.id)) + '</button>'
+  ).join("");
+}
+function renderPersonChips(){
+  $("personChips").innerHTML = PRONOUNS.map((p,pi) =>
+    '<button class="chip" data-p="'+pi+'" aria-pressed="'+S.persons.includes(pi)+'" lang="it">'+esc(p)+'</button>'
+  ).join("");
+  $("personPresets").innerHTML = PERSON_PRESETS.map(pr =>
+    '<button data-preset="'+pr.id+'">'+esc(pr.label)+'</button>'
+  ).join("");
+}
+/* the "a caso 🎲" chip: reset to the empty-selection = "all verbs" state. Never touches
+   S.verbExpanded — panel open/close is owned solely by #verbExpandBtn (see toggleVerb below). */
+function selectAllVerbs(){
+  S.verbs = [];
+  renderVerbBar(); renderVerbPanel(); renderTenseChips(); renderSummary();
+  nextItem(); save();
+}
+/* multi-select toggle for one verb — mirrors toggleTense/togglePerson EXCEPT it has no floor:
+   an empty S.verbs is itself the valid "a caso" state (see activeVerbs()), so emptying it here
+   is correct, not a bug. Does NOT close the verb panel (unlike the old single-select selectVerb,
+   which set S.verbExpanded = false on pick) — this is a multi-tap selection now, so closing on
+   every tap would make it unusable; also re-renders the tense chips, since tenseTierMark() reads
+   S.verbs.length to decide whether a single-verb tier mark applies. */
+function toggleVerb(inf){
+  const i = S.verbs.indexOf(inf);
+  if(i>=0) S.verbs.splice(i,1); else S.verbs.push(inf);
+  renderVerbBar(); renderVerbPanel(); renderTenseChips(); renderSummary();
+  nextItem(); save();
+}
+/* group-level toggle for one VERB_GROUPS family — a TRUE TOGGLE (all members in → remove them
+   all; otherwise add whatever's missing), NOT a "replace" like applyPersonPreset's
+   S.persons = pr.persons.slice(). A replace-style group button would wipe out unrelated
+   manually-selected verbs from other groups, which is wrong here. */
+function toggleVerbGroup(groupKey){
+  const g = VERB_GROUPS.find(x => x.id===groupKey); if(!g) return;
+  const members = VERBS.filter(g.test).map(v => v.inf);
+  const allIn = members.every(inf => S.verbs.includes(inf));
+  if(allIn){
+    S.verbs = S.verbs.filter(inf => !members.includes(inf));
+  }else{
+    members.forEach(inf => { if(!S.verbs.includes(inf)) S.verbs.push(inf); });
+  }
+  renderVerbBar(); renderVerbPanel(); renderTenseChips(); renderSummary();
+  nextItem(); save();
+}
+function toggleTense(id){
+  const i = S.tenses.indexOf(id);
+  if(i>=0) S.tenses.splice(i,1); else S.tenses.push(id);
+  if(!S.tenses.length) S.tenses = TENSES.map(t=>t.id); // floor: re-select all, never empty
+  save(); renderTenseChips(); renderSummary(); nextItem();
+}
+function togglePerson(pi){
+  const i = S.persons.indexOf(pi);
+  if(i>=0) S.persons.splice(i,1); else S.persons.push(pi);
+  if(!S.persons.length) S.persons = [0,1,2,3,4,5]; // floor: re-select "tutte", never empty
+  save(); renderPersonChips(); renderSummary(); nextItem();
+}
+function applyPersonPreset(id){
+  const pr = PERSON_PRESETS.find(p=>p.id===id); if(!pr) return;
+  S.persons = pr.persons.slice();
+  save(); renderPersonChips(); renderSummary(); nextItem();
+}
+
+/* the ONLY thing that opens/closes selWrap — a selection change never touches S.selOpen */
+$("summary").addEventListener("click", () => {
+  S.selOpen = !S.selOpen;
+  save();
+  updateSelWrap();
+  renderSummary(); // redraw the chevron to match
+});
+$("verbBar").addEventListener("click", e => {
+  const expandBtn = e.target.closest("#verbExpandBtn");
+  if(expandBtn){ S.verbExpanded = !S.verbExpanded; save(); renderVerbBar(); return; }
+  const b = e.target.closest(".chip[data-v]");
+  if(!b) return;
+  if(b.dataset.v==="a caso") selectAllVerbs(); else toggleVerb(b.dataset.v);
+});
+$("vpanel").addEventListener("click", e => {
+  const g = e.target.closest("button[data-vg]");
+  if(g){ toggleVerbGroup(g.dataset.vg); return; }
+  const b = e.target.closest(".chip[data-v]");
+  if(b) toggleVerb(b.dataset.v);
+});
+$("tenseChips").addEventListener("click", e => {
+  const b = e.target.closest(".chip[data-t]");
+  if(b) toggleTense(b.dataset.t);
+});
+$("personChips").addEventListener("click", e => {
+  const b = e.target.closest(".chip[data-p]");
+  if(b) togglePerson(Number(b.dataset.p));
+});
+$("personPresets").addEventListener("click", e => {
+  const b = e.target.closest("button[data-preset]");
+  if(b) applyPersonPreset(b.dataset.preset);
+});
+/* the whole row is the tap target (a <label for> doesn't activate a <button>) — one
+   listener on the row catches clicks on the switch too, via bubbling, so it fires once */
+$("toggleRow").addEventListener("click", () => {
+  S.forceProva = !S.forceProva;
+  $("forceProvaBtn").setAttribute("aria-pressed", String(S.forceProva));
+  save(); nextItem();
+});
+
+/* two-tap reset */
+let armed = null;
+$("reset").addEventListener("click", () => {
+  const btn = $("reset"), lab = $("resetLabel");
+  if(!armed){
+    btn.classList.add("armed"); lab.textContent = "sicuro? toccalo di nuovo";
+    armed = setTimeout(() => { armed = null; btn.classList.remove("armed"); lab.textContent = "ricomincia da zero"; }, 4000);
+    return;
+  }
+  clearTimeout(armed); armed = null;
+  btn.classList.remove("armed"); lab.textContent = "ricomincia da zero";
+  S.stats = {}; S.dstats = {}; S.seenCells = {}; S.hit = 0; S.tot = 0; S.streak = 0; S.seq = 0;
+  nextItem(); renderScore(); renderMastery();
+});
+
+/* ================================================================== *
+ * 10. TABELLE — one table per drilled tense for the currently relevant verb,
+ * built straight off TENSES (tier-badged,
+ * never locked: the tiers are metadata, not a gate). IntersectionObserver
+ * scopes "primed" to the SPECIFIC tense table that actually scrolled into
+ * view, not the whole tab — an improvement over 30-essere's whole-tab scope,
+ * itself already narrowed here to one verb at a time by the picker.
+ *
+ * v (2026-07-26, learner request): a search box lets the learner look up ANY verb's
+ * tables, not just the one the drill happens to be on. Resolver + lookup-only pool below.
+ * ================================================================== */
+
+/* LOOKUP_BY_VERB/ALL_LOOKUP — RESOLVER-ONLY merge of the drilled 40 (BY_VERB, from VERBS) and
+ * LOOKUP_VERBS (the searchable-but-never-drilled pool declared above, C5). Deliberately placed
+ * here rather than beside BY_VERB (~line 675): it calls norm()/strip() (section 4), which are
+ * declared as `const` AFTER BY_VERB but BEFORE this section — building it up there would throw
+ * (TDZ) on load. activeVerbs()/pickCell() must keep reading VERBS/BY_VERB alone, never this map,
+ * or the lookup-only pool would leak into the drill.
+ * Keyed by norm(strip(inf)) — not the raw infinitive — so an accented query (none in the pool
+ * today, but the data block's own "future edits" rule invites one later) still resolves. */
+const LOOKUP_BY_VERB = {};
+Object.values(BY_VERB).concat(LOOKUP_VERBS).forEach(v => {
+  const k = norm(strip(v.inf));
+  if(!LOOKUP_BY_VERB[k]) LOOKUP_BY_VERB[k] = v;
+});
+const ALL_LOOKUP = Object.values(LOOKUP_BY_VERB);
+const CLITICS = ["mi","ti","si","ci","vi","si"]; // io/tu/lui-lei/noi/voi/loro — reflexive rendering (C3)
+
+/* the resolver (C2/C3/C4). Four match strategies in precedence order; NEVER falls back to
+ * generating a paradigm for a verb outside the pool — kind:"none" is a deliberate dead end
+ * (see the "no-match" render below), not an invitation to guess a stem. */
+function resolveVerbQuery(raw){
+  const q = norm(strip(raw || ""));
+  if(!q) return { kind:"empty" };
+
+  // reflexive detection: an accepted -rsi query maps to its base infinitive and marks
+  // reflexive:true so the caller renders with clitics (C3). WHITELIST, not a derivation rule
+  // (Fable review, 2026-07-26): the -rsi -> -re transform is mechanically valid for ANY pool
+  // verb (aversi, uscirsi, andarsi, essersi, starsi, venirsi, rimanersi all derive a real base
+  // that exists in the pool), but mechanical validity is not the same as a verified reflexive —
+  // *mi avrò* is not Italian, no matter how cleanly the string transform produces it. So a -rsi
+  // query resolves as reflexive ONLY if the derived base is in the pool AND that base's own
+  // entry carries `refl:true` (an explicit, hand-vouched-for list — see the comment on
+  // LOOKUP_VERBS above and trovare's entry in VERBS). Any other -rsi query — including a
+  // mechanically-valid one — falls through untouched to the normal strategies and, failing
+  // those, reaches the honest kind:"none" dead end (C4): a false NO MATCH is safe, a
+  // fabricated paradigm is not.
+  let reflexive = false, lookupQ = q;
+  if(q.length > 3 && q.endsWith("rsi")){
+    const base = q.slice(0, -2) + "e"; // alzarsi -> alzare, vestirsi -> vestire
+    const baseEntry = LOOKUP_BY_VERB[base];
+    if(baseEntry && baseEntry.refl){ reflexive = true; lookupQ = base; }
+  }
+
+  // 1. exact infinitive
+  if(LOOKUP_BY_VERB[lookupQ])
+    return { kind:"one", v:LOOKUP_BY_VERB[lookupQ], reflexive, reflexiveInf: reflexive ? raw.trim() : null };
+
+  // 2. infinitive prefix
+  const prefixMatches = ALL_LOOKUP.filter(v => norm(strip(v.inf)).startsWith(lookupQ));
+  if(prefixMatches.length === 1) return { kind:"one", v:prefixMatches[0], reflexive:false, reflexiveInf:null };
+  if(prefixMatches.length > 1) return { kind:"many", list:prefixMatches.slice(0,8) };
+
+  // 3. English gloss match — TIERED: (a) exact whole gloss, (b) gloss with a leading "to "
+  //    peeled off, (c) any whole WORD in the gloss equals the query, (d) last-resort raw
+  //    substring (query length >= 4 only) for a multi-word phrase inside a composite gloss
+  //    ("wash oneself" inside lavare's "to wash / (lavarsi) to wash oneself").
+  //    Two collision classes this guards against, both found by probing, not by inspection:
+  //    - a flat substring test lets "have" also catch dovere's "to have to" — (a)/(b) resolve
+  //      "have" to avere alone before a substring tier ever runs.
+  //    - a flat substring test lets a short CONJUGATED-FORM query collide with an unrelated
+  //      gloss word ("ho" is a substring of sperare's "to hoPE") and wrongly shadow step 4's
+  //      exact-form match, which would have correctly resolved "ho" to avere. (c) is
+  //      word-bounded so "ho" cannot match inside "hope"; only length>=4 queries ever reach the
+  //      raw-substring tier (d), by which point a real conjugated-form collision is unlikely.
+  const stripTo = s => s.replace(/^to\s+/, "");
+  let glossMatches = ALL_LOOKUP.filter(v => norm(strip(v.en)) === lookupQ);
+  if(!glossMatches.length)
+    glossMatches = ALL_LOOKUP.filter(v => stripTo(norm(strip(v.en))) === stripTo(lookupQ));
+  if(!glossMatches.length)
+    glossMatches = ALL_LOOKUP.filter(v => norm(strip(v.en)).split(/[^a-z]+/).filter(Boolean).includes(lookupQ));
+  if(!glossMatches.length && lookupQ.length >= 4)
+    glossMatches = ALL_LOOKUP.filter(v => norm(strip(v.en)).includes(lookupQ));
+  if(glossMatches.length === 1) return { kind:"one", v:glossMatches[0], reflexive:false, reflexiveInf:null };
+  if(glossMatches.length > 1) return { kind:"many", list:glossMatches.slice(0,8) };
+
+  // 4. exact conjugated-form match — the drilled tenses + presente() (already exists,
+  //    used elsewhere only for diagnose()'s "reverted to the present" check), all 6 persons.
+  const formMatches = [];
+  ALL_LOOKUP.forEach(v => {
+    TENSES.forEach(t => {
+      for(let pi=0; pi<6; pi++){
+        if(norm(strip(formOf(v, t.id, pi))) === lookupQ) formMatches.push({ v, tense:t.id, pi });
+      }
+    });
+    for(let pi=0; pi<6; pi++){
+      if(norm(strip(presente(v, pi))) === lookupQ) formMatches.push({ v, tense:"pres", pi });
+    }
+  });
+  if(formMatches.length){
+    // dedupe to unique VERBS: some cells are genuinely ambiguous by person for ONE verb (-are
+    // congiuntivo io/tu/lui share one form, by design — see the note in #pane-table) — that's
+    // not a multi-VERB match, so still resolve to the one verb, just flag it ambiguous.
+    const uniq = []; const seenInf = new Set();
+    formMatches.forEach(m => { if(!seenInf.has(m.v.inf)){ seenInf.add(m.v.inf); uniq.push(m); } });
+    if(uniq.length === 1){
+      const m = uniq[0];
+      return { kind:"form", v:m.v, tense:m.tense, pi:m.pi, ambiguous: formMatches.length > 1 };
+    }
+    return { kind:"manyForm", list:uniq.map(m => m.v).slice(0,8) };
+  }
+
+  return { kind:"none" };
+}
+
+let searchOverride = null; // { v, reflexive, reflexiveInf } | null — overrides tabelleVerb() until cleared
+let tableObserver = null;
+/* tabelleVerb() — C6: follows the drilled verb when the search box is EMPTY (unchanged design);
+ * a search match overrides it until cleared. Always returns {v, reflexive} — reflexive is only
+ * ever true when the search query itself was a -rsi form (the drill-following path never is). */
+function tabelleVerb(){
+  if(searchOverride) return searchOverride;
+  // exactly one verb selected -> follow THAT one; zero or several selected (incl. "a caso")
+  // -> follow whichever verb the currently-drawn card belongs to, same fallback as before
+  const v = S.verbs.length===1 ? (BY_VERB[S.verbs[0]] || VERBS[0])
+          : (S.cur && BY_VERB[S.cur.verb]) ? BY_VERB[S.cur.verb] : VERBS[0];
+  return { v, reflexive:false, reflexiveInf:null };
+}
+function renderTables(){
+  const { v, reflexive, reflexiveInf } = tabelleVerb();
+  const label = reflexive ? reflexiveInf : v.inf;
+  $("tabelleVerb").innerHTML = '<b lang="it">'+esc(label)+'</b> — '+esc(v.en)
+    + (reflexive ? ' <span style="opacity:.6">(riflessivo)</span>' : "");
+  $("tables").innerHTML = TENSES.map(t => {
+    // LOOKUP_VERBS entries carry NO `tiers` field on purpose (C5: no evidence tiers exist for
+    // them) — tolerate that here rather than printing "undefined" (v.tiers[t.id] would throw).
+    const tier = v.tiers ? v.tiers[t.id] : null;
+    const badge = tier ? '<span class="tierbadge '+tier+'">'+esc(TIER_LABEL[tier])+'</span>'
+                        : '<span class="tierbadge lookup">solo consultazione</span>';
+    const rows = PRONOUNS.map((p,pi) => {
+      const parts = chunkParts(v, t.id, pi);
+      const shown = parts.map(pt => pt.hl ? '<span style="color:var(--ocra-ink);font-weight:700">'+esc(pt.t)+'</span>' : esc(pt.t)).join("");
+      const clitic = reflexive ? '<span class="clitic">'+esc(CLITICS[pi])+' </span>' : "";
+      return '<div class="prow"><span class="ppron">'+esc(p)+'</span><span class="pform" lang="it">'+clitic+shown+'</span></div>';
+    }).join("");
+    return '<div class="table" data-tense="'+t.id+'">'
+      + '<div class="thead"><span class="tname" lang="it">'+esc(t.label)+'</span>' + badge + '</div>'
+      + '<div class="grid">'+rows+'</div></div>';
+  }).join("");
+  if(tableObserver) tableObserver.disconnect();
+  if(typeof IntersectionObserver !== "undefined"){
+    // Priming is UNCONDITIONAL on verb identity, on purpose — a narrower "only prime if the
+    // tables shown belong to the verb being drilled" guard was tried and rejected (Fable review,
+    // 2026-07-26). Reason: FUT_END/COND_END/IMPF_END are the SAME six-ending set for every verb
+    // in the file — they're applied to each verb's own stem, but the endings themselves are
+    // class-wide, and CPRE differs only -are vs -ere/-ire (noi/voi shared even there). This
+    // learner's documented chronic gaps ARE the endings (single-m futuro vs double-m
+    // condizionale, the dropped -er- infix, the -are congiuntivo vowel) — so peeking ANY verb's
+    // futuro table reveals the thing actually under test, not just that one verb's stem. A
+    // verb-identity guard would let him look up pensare's congiuntivo, return to a pending
+    // trovare congiuntivo item, and be scored a clean cold ✓ on a form he just read the pattern
+    // for. Over-priming is the deliberately safe direction: a false "non conta" costs one
+    // repeat; a false "counts" corrupts the measurement (P6).
+    tableObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if(en.isIntersecting && S.cur){
+          const tid = en.target.dataset.tense;
+          if(!S.peeked) S.peeked = {};
+          // futuro/condizionale SHARE one stem (frStem) — peeking either table reveals the
+          // identical stem, so priming has to apply to BOTH, not just the one scrolled into view
+          const group = PRIME_GROUPS[tid] || [tid];
+          let changed = false;
+          group.forEach(g => { if(!S.peeked[g]){ S.peeked[g] = true; changed = true; } });
+          if(changed) save();
+        }
+      });
+    }, { threshold:0.4 });
+    document.querySelectorAll("#tables .table").forEach(el => tableObserver.observe(el));
+  }
+}
+
+/* ---- verb search UI (Tabelle tab, C1/C6) ---- */
+const vsearch = $("vsearch"), vsearchOut = $("vsearchOut");
+function clearVsearchOverride(){
+  searchOverride = null;
+  vsearchOut.innerHTML = "";
+  renderTables();
+}
+vsearch.addEventListener("input", () => {
+  const raw = vsearch.value;
+  if(!norm(strip(raw))){ clearVsearchOverride(); return; }
+  const r = resolveVerbQuery(raw);
+  if(r.kind === "one"){
+    searchOverride = { v:r.v, reflexive:r.reflexive, reflexiveInf:r.reflexiveInf };
+    vsearchOut.innerHTML = '<button class="vsearch-clear" id="vsearchClear">← torna al verbo del drill</button>';
+  }else if(r.kind === "form"){
+    searchOverride = { v:r.v, reflexive:false, reflexiveInf:null };
+    const tenseLabel = TENSE_SHORT[r.tense] || DISCRIM_LABEL[r.tense] || r.tense;
+    vsearchOut.innerHTML =
+      '<p class="vsearch-hint">' + esc(raw.trim()) + ' → <span lang="it">' + esc(r.v.inf) + '</span>'
+      + ' (' + esc(tenseLabel) + ', ' + esc(PRONOUNS[r.pi]) + ')'
+      + (r.ambiguous ? ' — forma condivisa da più persone, guarda la tabella' : '') + '</p>'
+      + '<button class="vsearch-clear" id="vsearchClear">← torna al verbo del drill</button>';
+    // Fix 3 (Fable review, 2026-07-26): the hint TEXT ITSELF is an unpriming oracle — "avrò →
+    // avere (futuro, io)" confirms/refutes a guess the learner could be mid-item on, exactly
+    // like scrolling that tense's table into view would. So treat a resolved form the same way:
+    // mark its PRIME_GROUPS as peeked and persist. Scoped to the RESOLVED form's tense, NOT the
+    // current item's — looking up avrò primes fut+cond and leaves a pending imperfetto item
+    // untouched. No verb-identity gate here either (same reasoning as the table-intersection
+    // priming in renderTables() — the endings under test are class-wide, not verb-specific).
+    // presente() matches (r.tense==="pres") prime nothing: only the drilled tenses are
+    // ever scored, so there is nothing there to protect.
+    if(BY_TENSE[r.tense]){
+      if(!S.peeked) S.peeked = {};
+      const group = PRIME_GROUPS[r.tense] || [r.tense];
+      let changed = false;
+      group.forEach(g => { if(!S.peeked[g]){ S.peeked[g] = true; changed = true; } });
+      if(changed) save();
+    }
+  }else if(r.kind === "many" || r.kind === "manyForm"){
+    searchOverride = null;
+    vsearchOut.innerHTML = '<div class="chips">' + r.list.map(v =>
+      '<button class="chip" data-pick="'+esc(v.inf)+'" lang="it">'+esc(v.inf)+'</button>').join("") + '</div>';
+  }else{
+    // C4 — HARD CONSTRAINT: never generate a paradigm for an unknown verb. An honest dead end,
+    // two exits, no "try anyway".
+    searchOverride = null;
+    vsearchOut.innerHTML =
+      '<div class="note"><b>Non ancora in lista.</b> Questo verbo non è tra quelli consultabili '
+      + 'qui. Paradigmi completi (anche per verbi irregolari) → <a href="10-verbi.html">verbi</a>. '
+      + 'Oppure chiedi al tutor di aggiungerlo.</div>';
+  }
+  renderTables();
+});
+vsearchOut.addEventListener("click", e => {
+  if(e.target.closest("#vsearchClear")){ vsearch.value = ""; clearVsearchOverride(); return; }
+  const pickBtn = e.target.closest(".chip[data-pick]");
+  if(pickBtn){
+    const v = LOOKUP_BY_VERB[norm(strip(pickBtn.dataset.pick))];
+    if(v){
+      searchOverride = { v, reflexive:false, reflexiveInf:null };
+      vsearchOut.innerHTML = '<button class="vsearch-clear" id="vsearchClear">← torna al verbo del drill</button>';
+      renderTables();
+    }
+  }
+});
+
+/* ================================================================== *
+ * 11. TABS (same sliding mechanism as 30-essere.html)
+ * ================================================================== */
+const tabs = [$("tab-drill"), $("tab-table")];
+const panes = [$("pane-drill"), $("pane-table")];
+const viewport = $("viewport"), track = $("track"), thumb = $("thumb");
+let activeIdx = 0;
+function syncHeight(){
+  const h = panes[activeIdx].getBoundingClientRect().height;
+  if(h) viewport.style.height = (Math.ceil(h) + 2) + "px";
+  if(kbFieldFocused) frameField("auto");   // the card grew under an open keyboard — re-frame
+}
+function selectTab(idx){
+  activeIdx = idx;
+  viewport.scrollLeft = 0; // guard against scrollLeft drift bleeding the inert pane through
+  panes.forEach((p,i) => {
+    p.hidden = false;
+    if(i===idx){ p.removeAttribute("inert"); p.removeAttribute("aria-hidden"); }
+    else{ p.setAttribute("inert",""); p.setAttribute("aria-hidden","true"); }
+  });
+  tabs.forEach((t,i) => {
+    t.setAttribute("aria-selected", i===idx ? "true" : "false");
+    t.tabIndex = i===idx ? 0 : -1;
+  });
+  track.classList.toggle("right", idx===1);
+  thumb.classList.toggle("right", idx===1);
+  syncHeight();
+  S.tab = idx; save();
+}
+tabs.forEach((t,i) => {
+  t.addEventListener("click", () => selectTab(i));
+  t.addEventListener("keydown", e => {
+    let n = null;
+    if(e.key==="ArrowRight") n = (i+1)%tabs.length;
+    else if(e.key==="ArrowLeft") n = (i-1+tabs.length)%tabs.length;
+    else if(e.key==="Home") n = 0;
+    else if(e.key==="End") n = tabs.length-1;
+    if(n===null) return;
+    e.preventDefault(); selectTab(n); tabs[n].focus();
+  });
+});
+if(typeof ResizeObserver !== "undefined"){
+  new ResizeObserver(syncHeight).observe(panes[0]);
+  new ResizeObserver(syncHeight).observe(panes[1]);
+}
+addEventListener("resize", syncHeight);
+
+/* ================================================================== *
+ * 12. SELF-CHECK — enumerate every verb × tense × person; callable from the
+ * console as window.__coniugazioniSelfCheck(). This ONLY catches generation
+ * failures — undefined, NaN, or an empty string. It does NOT verify that a
+ * generated form is linguistically correct: a clean (empty) result here is not
+ * proof of correctness, only proof that formOf() didn't crash or produce junk.
+ * v: also runs the same junk check across LOOKUP_VERBS (the Tabelle-search-only pool, C5) and
+ * a handful of resolver fixtures (C2/C3/C4) — those DO assert a specific right answer, since a
+ * resolver that returns the wrong verb (or a false NO MATCH / false match) is a real bug, not
+ * just a linguistic-accuracy question the way the generation-junk check above deliberately
+ * stays silent on.
+ * ================================================================== */
+function selfCheck(){
+  const problems = [];
+  VERBS.concat(LOOKUP_VERBS).forEach(v => TENSES.forEach(t => {
+    for(let pi=0; pi<6; pi++){
+      const f = formOf(v, t.id, pi);
+      if(typeof f !== "string" || !f || /undefined|NaN/.test(f)) problems.push(v.inf+" "+t.id+" pi="+pi+" -> "+JSON.stringify(f));
+    }
+  }));
+  problems.push(...resolverSelfCheck());
+  return problems;
+}
+function resolverSelfCheck(){
+  const problems = [];
+  function expectOne(query, inf, wantReflexive){
+    const r = resolveVerbQuery(query);
+    if(r.kind === "one" || r.kind === "form"){
+      if(r.v.inf !== inf) problems.push('resolver "'+query+'" -> expected '+inf+", got "+r.v.inf);
+      if(wantReflexive && !r.reflexive) problems.push('resolver "'+query+'" -> expected reflexive:true, got false');
+    }else{
+      problems.push('resolver "'+query+'" -> expected ONE match ('+inf+"), got kind="+r.kind);
+    }
+  }
+  function expectNone(query){
+    const r = resolveVerbQuery(query);
+    if(r.kind !== "none") problems.push('resolver "'+query+'" -> expected NO MATCH, got kind='+r.kind+(r.v?" "+r.v.inf:""));
+  }
+  expectOne("have", "avere");
+  expectOne("avrò", "avere");
+  expectOne("mangeremmo", "mangiare");
+  expectOne("alzarsi", "alzare", true);
+  expectOne("port", "portare");
+  expectNone("tradurre");
+  expectNone("sciare");
+  expectNone("tenere");
+  // Fix 1 fixtures (Fable review, 2026-07-26): the -rsi reflexive path is a WHITELIST
+  // (refl:true), not a derivation rule — these all have a mechanically-valid pool base but
+  // NONE of them is a verified reflexive, so all four must report NO MATCH, never a fabricated
+  // paradigm (*mi avrò*, *mi uscirò*, *mi andrò*, *mi farò* are not Italian in this sense).
+  expectNone("aversi");
+  expectNone("uscirsi");
+  expectNone("andarsi");
+  expectNone("farsi");
+  // and the genuinely whitelisted ones still resolve correctly, reflexive:true
+  expectOne("sentirsi", "sentire", true);
+  expectOne("trovarsi", "trovare", true);
+  return problems;
+}
+window.__coniugazioniSelfCheck = selfCheck;
+
+/* ================================================================== *
+ * 13. BOOT
+ * ================================================================== */
+(function boot(){
+  try{
+    const raw = store.get(KEY);
+    let parsed = null;
+    try{ parsed = raw ? JSON.parse(raw) : null; }catch(e){ parsed = null; }
+    if(parsed && typeof parsed==="object" && !Array.isArray(parsed)) Object.assign(S, parsed);
+    // migration: old single-verb `S.verb` (string) -> new multi-select `S.verbs` (array).
+    // MUST test against `parsed` (the raw pre-Object.assign JSON), never against `S` — by this
+    // point S already carries its own default `verbs:[]`, so testing S would never detect "old
+    // format had no verbs array" and would silently drop the learner's real saved selection.
+    if(parsed && !parsed.verbs && parsed.verb){
+      S.verbs = (parsed.verb !== "a caso" && BY_VERB[parsed.verb]) ? [parsed.verb] : [];
+    }
+    delete S.verb; // migrated (or never present) — don't let the dead key linger and re-trigger this
+    if(!S.stats || typeof S.stats!=="object") S.stats = {};
+    if(!S.dstats || typeof S.dstats!=="object") S.dstats = {};
+    if(!S.seenCells || typeof S.seenCells!=="object") S.seenCells = {};
+    if(Array.isArray(S.tenses)) S.tenses = [...new Set(S.tenses.filter(id => BY_TENSE[id]))];
+    if(!Array.isArray(S.tenses) || !S.tenses.length) S.tenses = TENSES.map(t=>t.id);
+    // One-time expansion of a PRE-cimp save. Deriving the default from TENSES fixed fresh
+    // loads only — an existing device still holds ["fut","imp","cond","cpre"], every id of
+    // which is valid, so it sails through the filter above and keeps congiuntivo imperfetto
+    // deselected on the one device that actually matters. That stored array could only ever
+    // have meant "all of them": cimp did not exist when it was written.
+    // Guarded, because a later DELIBERATE deselection must not be overridden — expand only if
+    // the learner has never met a cimp cell (no cimp key in seenCells/stats/dstats). Once he
+    // has, his selection is a real choice and is left alone.
+    // Gated on an explicit one-shot FLAG, not on inferred evidence. The first attempt inferred
+    // "has he met cimp?" from cimp keys in seenCells/stats/dstats — but those are written only
+    // when an item is COMPLETED, so a learner who saw the new chip appear and immediately
+    // switched it back off left no trace, and the expansion re-fired on every single load,
+    // silently undoing the same deliberate choice forever. The most likely moment to deselect
+    // was precisely the moment the guard was blind to. A flag cannot have that hole: it records
+    // that the migration HAPPENED, which is the actual fact being tracked.
+    if(!S.cimpMigrated){
+      if(S.tenses.length === 4 && ["fut","imp","cond","cpre"].every(id => S.tenses.includes(id))){
+        S.tenses = TENSES.map(t=>t.id);
+      }
+      S.cimpMigrated = true; // set even when nothing was expanded — one-time means one-time
+    }
+    // symmetric range-check for persons (0..5) — a restored persons:[9] would otherwise render
+    // an empty person cue and a garbage form
+    if(Array.isArray(S.persons)) S.persons = [...new Set(S.persons.filter(pi => Number.isInteger(pi) && pi>=0 && pi<6))];
+    if(!Array.isArray(S.persons) || !S.persons.length) S.persons = [0,1,2,3,4,5];
+    // filter to known infinitives + dedupe (same policy as tenses/persons above); an empty
+    // result is fine — it's simply the "a caso" state, never a "nothing to drill" dead end.
+    if(Array.isArray(S.verbs)) S.verbs = [...new Set(S.verbs.filter(inf => BY_VERB[inf]))];
+    else S.verbs = [];
+    S.selOpen = !!S.selOpen; // coerce; defaults false for a first-time visitor (v)
+    // restore-hardening guard (Fable review, baseline bug, 2026-07-26): a hand-edited/corrupted
+    // localStorage could restore a non-numeric hit/tot/streak/seq (e.g. hit:"a") — fmtNum() would
+    // then throw inside renderScore() and abort boot() before selectTab(), leaving the viewport
+    // height unset. Coerce to a finite number, default 0, same style as the other restore guards.
+    if(!Number.isFinite(S.hit)) S.hit = 0;
+    if(!Number.isFinite(S.tot)) S.tot = 0;
+    if(!Number.isFinite(S.streak)) S.streak = 0;
+    if(!Number.isFinite(S.seq)) S.seq = 0;
+  }catch(e){
+    // Same derived-not-literal rule as the S initializer above — this copy is the one a
+    // learner hits after a corrupted save, so a stale literal here is invisible until it bites.
+    S = { verbs:[], tenses:TENSES.map(t=>t.id), persons:[0,1,2,3,4,5],
+          forceProva:false, verbExpanded:false, selOpen:false, hit:0, tot:0, streak:0,
+          stats:{}, dstats:{}, seenCells:{}, seq:0, cur:null, done:false,
+          draft:"", picked:null, peeked:{}, fb:null, tab:0 };
+  }
+
+  renderVerbBar(); renderTenseChips(); renderPersonChips(); renderSummary();
+  $("summary").setAttribute("aria-expanded", String(!!S.selOpen));
+  $("selWrap").hidden = !S.selOpen; // set state now; the height sync itself waits for no-anim below
+  $("forceProvaBtn").setAttribute("aria-pressed", String(!!S.forceProva));
+
+  const problems = selfCheck();
+  if(problems.length) console.error("coniugazioni self-check FAILED:", problems);
+
+  const c = S.cur;
+  const validCell = c && BY_VERB[c.verb] && Number.isInteger(c.pi) && c.pi>=0 && c.pi<6
+    && (c.kind==="studia" || c.kind==="prod"
+        ? (c.tense && BY_TENSE[c.tense])
+        : (c.kind==="discrim" && Array.isArray(c.choices)));
+  if(!validCell){
+    nextItem();
+  }else{
+    renderCard();
+    if(S.done && S.fb){
+      const v = BY_VERB[c.verb];
+      if(c.kind==="prod"){
+        setAnswer(formOf(v, c.tense, c.pi));
+        $("answer").readOnly = true; $("dunno").disabled = true;
+        $("submit").textContent = "Avanti →"; $("submit").disabled = false;
+        showFeedbackProd(S.fb, v, c);
+      }else if(c.kind==="discrim"){
+        const correctId = c.sub==="trap" ? (c.shown || "cpre") : c.tense;
+        showFeedbackDiscrim(S.fb, v, c, correctId);
+        settleDiscrim();
+        const nb = $("discrimNext"); if(nb) nb.disabled = false;
+      }
+      // studia never persists a settled state: it either advances or it's mid-copy
+    }
+    renderTables();
+  }
+  renderScore(); renderMastery();
+
+  document.documentElement.classList.add("no-anim");
+  selectTab(S.tab===1 ? 1 : 0);
+  requestAnimationFrame(() => {
+    syncHeight();
+    requestAnimationFrame(() => document.documentElement.classList.remove("no-anim"));
+  });
+  flush();
+})();
+</script>
+
+<div style="color:#c4bfb2;font-size:11px;text-align:center;padding:8px 0">build 2026-08-22-2001</div></body>
+</html>
